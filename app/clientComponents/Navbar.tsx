@@ -52,7 +52,7 @@ export default function NavBar() {
         </div>
         <div className="hidden md:flex items-center space-x-6">
           <Link href="/">
-            <p className=" hover:text-yellow-700 font-semibold ">Home</p>
+            <p className=" hover:text-yellow-700 font-semibold ">Acceuil</p>
           </Link>
 
           <div
@@ -68,7 +68,7 @@ export default function NavBar() {
           >
             <div className="flex items-center">
               <p className=" hover:text-yellow-700 font-semibold mx-1">
-                Our work
+                Filiere
               </p>
               <BsChevronDown className="mt-1" />
             </div>
@@ -89,7 +89,7 @@ export default function NavBar() {
                       router.push("/ourprogram/education");
                     }}
                   >
-                    Education
+                    Informatique bureautique
                   </li>
                   <Separator />
                   <li
@@ -99,7 +99,7 @@ export default function NavBar() {
                       router.push("/ourprogram/health");
                     }}
                   >
-                    Health
+                    Telecommunications
                   </li>
                   <Separator />
                   <li
@@ -109,7 +109,27 @@ export default function NavBar() {
                       router.push("/ourprogram/food");
                     }}
                   >
-                    Food
+                    Mecanique Auto
+                  </li>
+                  <Separator />
+                  <li
+                    className="py-2 px-3 text-gray-800 hover:bg-gray-200 cursor-pointer"
+                    onClick={() => {
+                      setIsHovered(false);
+                      router.push("/ourprogram/food");
+                    }}
+                  >
+                    Electrotechnique
+                  </li>
+                  <Separator />
+                  <li
+                    className="py-2 px-3 text-gray-800 hover:bg-gray-200 cursor-pointer"
+                    onClick={() => {
+                      setIsHovered(false);
+                      router.push("/ourprogram/food");
+                    }}
+                  >
+                    Plomberie Hydraulique et sanitaire
                   </li>
                 </ul>
               </div>
@@ -129,7 +149,7 @@ export default function NavBar() {
           >
             <div className="flex items-center">
               <p className=" hover:text-yellow-700 font-semibold mx-1">
-                About us
+                Admission
               </p>
               <BsChevronDown className="mt-1" />
             </div>
@@ -147,23 +167,14 @@ export default function NavBar() {
                     className="py-2 px-3 text-gray-800 hover:bg-gray-200 cursor-pointer"
                     onClick={() => setIsHovered1(false)}
                   >
-                    Our team
+                    Conditions d’admission
                   </li>
                   <Separator />
                   <li
                     className="py-2 px-3 text-gray-800 hover:bg-gray-200 cursor-pointer"
                     onClick={() => setIsHovered1(false)}
                   >
-                    <a href="/who-we-are">Who we are</a>
-                  </li>
-                  <Separator />
-                  <li
-                    className="py-2 px-3 text-gray-800 hover:bg-gray-200 cursor-pointer"
-                    onClick={() => {
-                      setIsHovered1(false);
-                    }}
-                  >
-                    <a href="/document">Document</a>
+                    <a href="/who-we-are">Procédure d’inscription</a>
                   </li>
                 </ul>
               </div>
@@ -182,7 +193,7 @@ export default function NavBar() {
           >
             <div className="flex items-center">
               <p className="text-yellow-700 underline font-semibold mx-1">
-                Get involved
+                A propos
               </p>
               <BsChevronDown className="mt-1" />
             </div>
@@ -202,7 +213,7 @@ export default function NavBar() {
                       className="py-2 px-3 text-gray-800 hover:bg-gray-200 cursor-pointer"
                       onClick={() => setIsHovered2(false)}
                     >
-                      Get update
+                      Présentation
                     </li>
                   </a>
 
@@ -214,7 +225,7 @@ export default function NavBar() {
                       router.push("/contact");
                     }}
                   >
-                    Contact us
+                    Vision
                   </li>
                   <Separator />
                   <li
@@ -224,7 +235,7 @@ export default function NavBar() {
                       router.push("/blog");
                     }}
                   >
-                    Blog
+                    Équipe pédagogique
                   </li>
                 </ul>
               </div>
@@ -235,10 +246,7 @@ export default function NavBar() {
             target="_blank"
           >
             <Button variant="destructive">
-              <div className="flex items-center mx-4  ">
-                <IoMdHeartEmpty className="h-5 w-5 " />
-                donate
-              </div>
+              <div className="flex items-center mx-4">Se connecter</div>
             </Button>
           </Link>
         </div>
@@ -249,7 +257,7 @@ export default function NavBar() {
           >
             <Button variant="destructive" asChild>
               <div className="flex items-center   ">
-                <p>Donate</p>
+                <p>Se connecter</p>
               </div>
             </Button>
           </Link>
@@ -296,46 +304,42 @@ export default function NavBar() {
           ></div>
 
           <p className="block px-10 py-2 hover:text-yellow-700 font-semibold">
-            Our program
+            Filiere
           </p>
           <Link href="/ourprogram/education">
-            <p className="px-10">Education</p>{" "}
+            <p className="px-10">Informatique bureautique</p>{" "}
           </Link>
           <Link href="/ourprogram/food">
-            <p className="px-10">Food</p>{" "}
+            <p className="px-10">Télécommunications</p>{" "}
           </Link>
           <Link href="/ourprogram/health">
-            <p className="px-10">Health</p>{" "}
+            <p className="px-10">Mécanique auto</p>{" "}
           </Link>
           <Separator />
 
           <p className="block px-10 py-2 hover:text-yellow-700 font-semibold">
-            About
+            Admission
           </p>
 
           <Link href="/">
-            <p className="px-10">Our team</p>{" "}
+            <p className="px-10">Condition d'Admission</p>{" "}
           </Link>
           <Link href="/who-we-are">
-            <p className="px-10">Who we are</p>{" "}
+            <p className="px-10">Procedure d'inscription</p>{" "}
           </Link>
-          <Link href="/document">
-            <p className="px-10">Document</p>{" "}
-          </Link>
-          <Separator />
 
           <p className="text-yellow-700 px-10 py-2 hover:text-yellow-800 font-semibold ">
-            Get involved
+            A propos
           </p>
 
           <Link href="#getupdate">
-            <p className="px-10 ">Get update</p>{" "}
+            <p className="px-10 ">Présentation</p>{" "}
           </Link>
           <Link href="/contact">
-            <p className="px-10">Contact us</p>{" "}
+            <p className="px-10">Vision</p>{" "}
           </Link>
           <Link href="/blog">
-            <p className="px-10">Blog</p>{" "}
+            <p className="px-10">Equipe pedagogique</p>{" "}
           </Link>
         </div>
       )}
