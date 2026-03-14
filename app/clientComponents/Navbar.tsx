@@ -10,6 +10,10 @@ import { BiChevronsDown } from "react-icons/bi";
 import { BsChevronDown } from "react-icons/bs";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "./AuthContext";
+import { LoaderIcon, LogOut } from "lucide-react";
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase/config";
 export default function NavBar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -22,16 +26,18 @@ export default function NavBar() {
   const [isHoveredpopup2, setIsHoveredpopup2] = useState(false);
 
   const router = useRouter();
-  /*
-<div className=" border-4 border-red-700 mx-auto  h-[67px] w-[187px]">
-            <button className=" h-[60px] w-[180px] mx-auto my-auto hover:bg-blue-200 bg-transparent  font-bold text-black">
-              <div className="flex items-center ml-5">
-                <IoMdHeartEmpty className="h-10 w-10 " />
-                donate
-              </div>
-            </button>
-          </div>
-*/
+  const { user, role, loading } = useAuth();
+  console.log(role);
+  const logOut = async () => {
+    await signOut(auth);
+    router.replace("/login");
+  };
+  if (loading)
+    return (
+      <div className="flex justify-center p-2">
+        <LoaderIcon className="animate-spin" />
+      </div>
+    );
   const toggleMenu = () => {
     setIsOpen(!isOpen);
   };
@@ -50,6 +56,7 @@ export default function NavBar() {
             StLuc Academic Manager
           </p>
         </div>
+
         <div className="hidden md:flex items-center space-x-6">
           <Link href="/">
             <p className=" hover:text-yellow-700 font-semibold ">Acceuil</p>
@@ -241,26 +248,29 @@ export default function NavBar() {
               </div>
             )}
           </div>
-          <Link
-            href="https://www.paypal.com/donate/?hosted_button_id=UW6KVE5SQGQ98"
-            target="_blank"
-          >
-            <Button variant="destructive">
-              <div className="flex items-center mx-4">Se connecter</div>
-            </Button>
-          </Link>
+          <div className="grid gap-2">
+            {user == null ? (
+              <Link href="/login">
+                <Button>Se connecter</Button>
+              </Link>
+            ) : (
+              <Button variant="ghost" onClick={logOut}>
+                <LogOut />
+              </Button>
+            )}
+            <p className="mx-auto  font-bold text-gray-600">{user?.email}</p>
+          </div>
         </div>
         <div className="md:hidden flex items-center">
-          <Link
-            href="https://www.paypal.com/donate/?hosted_button_id=UW6KVE5SQGQ98"
-            target="_blank"
-          >
-            <Button variant="destructive" asChild>
-              <div className="flex items-center   ">
-                <p>Se connecter</p>
-              </div>
+          {user == null ? (
+            <Link href="/login">
+              <Button>Se connecter</Button>
+            </Link>
+          ) : (
+            <Button variant="ghost" onClick={logOut}>
+              <LogOut />
             </Button>
-          </Link>
+          )}
 
           <button
             onClick={toggleMenu}
@@ -341,6 +351,9 @@ export default function NavBar() {
           <Link href="/blog">
             <p className="px-10">Equipe pedagogique</p>{" "}
           </Link>
+          <p className="mx-auto text-xl font-bold text-gray-600">
+            {user?.email}
+          </p>
         </div>
       )}
     </header>
