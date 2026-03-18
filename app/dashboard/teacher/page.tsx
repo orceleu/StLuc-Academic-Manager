@@ -9,11 +9,14 @@ import {
   doc,
   updateDoc,
   setDoc,
+  getDoc,
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "@/app/firebase/config";
 import { useAuth } from "@/app/clientComponents/AuthContext";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Responsable } from "../department/page";
 
 export type Teacher = {
   uid: string;
@@ -45,7 +48,8 @@ export default function TeacherPage() {
 
   const [editData, setEditData] = useState<any>(null);
   const [deleteData, setDeleteData] = useState<any>(null);
-
+  const [responsables, setResponsables] = useState<Responsable[]>([]);
+  const [userFiliere, setUserFiliere] = useState("");
   const usersRef = collection(db, "users");
   const filiereRef = collection(db, "filieres");
   const router = useRouter();
@@ -64,8 +68,39 @@ export default function TeacherPage() {
     setFilieres(list);
   }
 
+  /*async function fetchCurrentUserFiliere() {
+    const user = auth.currentUser;
+
+    if (!user) return;
+
+    const docRef = doc(db, "users", user.uid);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      setUserFiliere(data.filiere);
+    }
+  }*/
+  async function fetchCurrentUserFiliere() {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const docRef = doc(db, "users", user.uid);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      setUserFiliere(data.filiere);
+
+      // ✅ AJOUT : On pré-remplit le champ filiere pour le formulaire d'ajout
+      // Si ce n'est pas un directeur, on force la valeur
+      if (data.filiere !== "directeur") {
+        setFiliere(data.filiere);
+      }
+    }
+  }
   /* ======================== */
-  async function fetchTeachers() {
+  /* async function fetchTeachers() {
     const snapshot = await getDocs(usersRef);
     const list: any = [];
 
@@ -81,16 +116,46 @@ export default function TeacherPage() {
     });
 
     setTeachers(list);
-  }
+  }*/
+  async function fetchTeachers() {
+    const snapshot = await getDocs(usersRef);
+    const list: any = [];
 
+    snapshot.forEach((docu) => {
+      const data = docu.data();
+
+      if (data.role === "teacher") {
+        // ✅ LOGIQUE MODIFIÉE :
+        // Si l'utilisateur est "directeur", on ignore le filtre de filière.
+        // Sinon, on vérifie que la filière du prof correspond à celle de l'utilisateur.
+        const isDirecteur = userFiliere === "directeur";
+        const matchesFiliere = data.filiere === userFiliere;
+
+        if (isDirecteur || matchesFiliere) {
+          list.push({
+            uid: docu.id,
+            ...data,
+          });
+        }
+      }
+    });
+
+    setTeachers(list);
+  }
   useEffect(() => {
     fetchTeachers();
     fetchFilieres();
+    fetchResponsables();
+    fetchCurrentUserFiliere();
   }, []);
-
+  useEffect(() => {
+    if (userFiliere) {
+      fetchTeachers();
+    }
+  }, [userFiliere]);
   /* ======================== */
   async function addTeacher() {
-    if (!filiere || !cours) {
+    if (!filiere) {
       alert("Remplir tous les champs");
       return;
     }
@@ -104,7 +169,7 @@ export default function TeacherPage() {
       email,
       password,
       filiere,
-      cours,
+
       role: "teacher",
     });
 
@@ -115,6 +180,25 @@ export default function TeacherPage() {
     setCours("");
 
     fetchTeachers();
+  }
+
+  async function fetchResponsables() {
+    const snapshot = await getDocs(usersRef);
+
+    const list: any = [];
+
+    snapshot.forEach((docu) => {
+      const data = docu.data();
+
+      if (data.role === "responsable") {
+        list.push({
+          uid: docu.id,
+          ...data,
+        });
+      }
+    });
+
+    setResponsables(list);
   }
 
   /* ======================== */
@@ -135,7 +219,7 @@ export default function TeacherPage() {
     fetchTeachers();
   }
 
-  if (role !== "admin") {
+  if (role !== "admin" && role !== "responsable") {
     setTimeout(() => {
       router.push("/dashboard");
     }, 2000);
@@ -174,17 +258,12 @@ export default function TeacherPage() {
             className="border p-2 rounded"
           />
 
-          <input
-            placeholder="Cours (ex: Math, Physique)"
-            value={cours}
-            onChange={(e) => setCours(e.target.value)}
-            className="border p-2 rounded"
-          />
-
           <select
             value={filiere}
             onChange={(e) => setFiliere(e.target.value)}
-            className="border p-2 rounded"
+            className={`border p-2 rounded ${userFiliere !== "directeur" ? "bg-gray-200 cursor-not-allowed" : ""}`}
+            // ✅ VERROUILLAGE : Si l'utilisateur n'est pas directeur, on désactive le choix
+            disabled={userFiliere !== "" && userFiliere !== "directeur"}
           >
             <option value="">Choisir filière</option>
 
@@ -205,48 +284,85 @@ export default function TeacherPage() {
       </div>
 
       {/* TABLE */}
-      <table className="w-full border">
-        <thead className="bg-gray-200">
-          <tr>
-            <th className="p-2">Nom</th>
-            <th>Cours</th>
-            <th>Filière</th>
-            <th>Email</th>
-            <th>Password</th>
-            <th>Role</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {teachers.map((t) => (
-            <tr key={t.uid} className="border-t">
-              <td className="p-2">{t.name}</td>
-              <td>{t.cours}</td>
-              <td>{t.filiere}</td>
-              <td>{t.email}</td>
-              <td>{t.password}</td>
-              <td>{t.role}</td>
-
-              <td className="flex gap-3">
-                <button
-                  onClick={() => setEditData(t)}
-                  className="text-blue-600"
-                >
-                  Modifier
-                </button>
-
-                <button
-                  onClick={() => setDeleteData(t)}
-                  className="text-red-600"
-                >
-                  Supprimer
-                </button>
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full border border-gray-200 rounded-lg overflow-hidden">
+          {/* HEADER */}
+          <thead className="bg-gray-100 text-gray-700 text-sm uppercase">
+            <tr>
+              <th className="px-4 py-3 text-left">Nom</th>
+              <th className="px-4 py-3 text-left">Cours</th>
+              <th className="px-4 py-3 text-center">Filière</th>
+              <th className="px-4 py-3 text-left">Email</th>
+              <th className="px-4 py-3 text-center">Password</th>
+              <th className="px-4 py-3 text-center">Role</th>
+              <th className="px-4 py-3 text-center">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          {/* BODY */}
+          <tbody className="text-gray-700 text-sm">
+            {teachers.map((t, index) => (
+              <tr
+                key={t.uid}
+                className={`border-t hover:bg-gray-50 transition ${
+                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                }`}
+              >
+                {/* NOM */}
+                <td className="px-4 py-3 font-medium">{t.name}</td>
+
+                {/* COURS */}
+                <td className="px-4 py-3">
+                  <Button
+                    className="bg-gray-100"
+                    variant="ghost"
+                    onClick={() => router.push("/dashboard/cours")}
+                  >
+                    Gerer les cours
+                  </Button>
+                </td>
+
+                {/* FILIERE */}
+                <td className="px-4 py-3 text-center">{t.filiere}</td>
+
+                {/* EMAIL */}
+                <td className="px-4 py-3">{t.email}</td>
+
+                {/* PASSWORD */}
+                <td className="px-4 py-3 text-center">
+                  <span className="text-gray-400">{t.password}</span>
+                </td>
+
+                {/* ROLE */}
+                <td className="px-4 py-3 text-center">
+                  <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-semibold">
+                    {t.role}
+                  </span>
+                </td>
+
+                {/* ACTIONS */}
+                <td className="px-4 py-3">
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={() => setEditData(t)}
+                      className="text-blue-600 hover:underline text-sm"
+                    >
+                      Modifier
+                    </button>
+
+                    <button
+                      onClick={() => setDeleteData(t)}
+                      className="text-red-600 hover:underline text-sm"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* MODAL EDIT */}
       {editData && (

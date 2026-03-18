@@ -257,46 +257,75 @@ export default function FilierePage() {
         <span className="font-bold text-gray-500">Nombre :</span>
         <span className="text-green-500 ml-2">{responsables.length}</span>
       </p>
-      <table className="w-full border">
-        <thead className="bg-gray-200">
-          <tr>
-            <th className="p-2">Filière</th>
-            <th>Nom</th>
-            <th>Email</th>
-            <th>Password</th>
-            <th>Role</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {responsables.map((r) => (
-            <tr key={r.uid} className="border-t">
-              <td className="p-2">{r.filiere}</td>
-              <td>{r.name}</td>
-              <td>{r.email}</td>
-              <td>{r.password}</td>
-              <td>{r.role}</td>
-
-              <td className="flex gap-3">
-                <button
-                  onClick={() => setEditData(r)}
-                  className="text-blue-600"
-                >
-                  Modifier
-                </button>
-
-                <button
-                  onClick={() => setDeleteData(r)}
-                  className="text-red-600"
-                >
-                  Supprimer
-                </button>
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full border border-gray-200 rounded-lg overflow-hidden">
+          {/* HEADER */}
+          <thead className="bg-gray-100 text-gray-700 text-sm uppercase">
+            <tr>
+              <th className="px-4 py-3 text-center">Filière</th>
+              <th className="px-4 py-3 text-left">Nom</th>
+              <th className="px-4 py-3 text-left">Email</th>
+              <th className="px-4 py-3 text-center">Password</th>
+              <th className="px-4 py-3 text-center">Role</th>
+              <th className="px-4 py-3 text-center">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          {/* BODY */}
+          <tbody className="text-gray-700 text-sm">
+            {responsables.map((r, index) => (
+              <tr
+                key={r.uid}
+                className={`border-t hover:bg-gray-50 transition ${
+                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                }`}
+              >
+                {/* FILIERE */}
+                <td className="px-4 py-3 text-center font-medium">
+                  {r.filiere}
+                </td>
+
+                {/* NOM */}
+                <td className="px-4 py-3">{r.name}</td>
+
+                {/* EMAIL */}
+                <td className="px-4 py-3">{r.email}</td>
+
+                {/* PASSWORD */}
+                <td className="px-4 py-3 text-center">
+                  <span className="text-gray-400">{r.password}</span>
+                </td>
+
+                {/* ROLE */}
+                <td className="px-4 py-3 text-center">
+                  <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
+                    {r.role}
+                  </span>
+                </td>
+
+                {/* ACTIONS */}
+                <td className="px-4 py-3">
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={() => setEditData(r)}
+                      className="text-blue-600 hover:underline text-sm"
+                    >
+                      Modifier
+                    </button>
+
+                    <button
+                      onClick={() => setDeleteData(r)}
+                      className="text-red-600 hover:underline text-sm"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {/* MODAL EDIT */}{" "}
       {editData && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
