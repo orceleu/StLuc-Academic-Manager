@@ -39,6 +39,9 @@ type Teacher = {
 export default function CoursPage() {
   const { role } = useAuth();
   const router = useRouter();
+  const [timeRange, setTimeRange] = useState<string>("");
+  const [duration, setDuration] = useState<number | null>(null);
+  const [error, setError] = useState<string>("");
 
   const [coursList, setCoursList] = useState<Cours[]>([]);
   const [filieres, setFilieres] = useState<Filiere[]>([]);
@@ -61,6 +64,39 @@ export default function CoursPage() {
   const filiereRef = collection(db, "filieres");
   const usersRef = collection(db, "users");
 
+  const handleCalculate = (value: string) => {
+    setTimeRange(value);
+    setError("");
+    setDuration(null);
+
+    // 1. Validation du format via Regex (ex: 8-10, 08-22, 14-15)
+    const regex = /^(\d{1,2})-(\d{1,2})$/;
+    const match = value.match(regex);
+
+    if (!match) {
+      if (value.length > 0) setError("Format invalide (ex: 8-10)");
+      return;
+    }
+
+    const start = parseInt(match[1], 10);
+    const end = parseInt(match[2], 10);
+
+    // 2. Contraintes de validité (0h - 24h)
+    if (start < 0 || start > 23 || end < 0 || end > 24) {
+      setError("Les heures doivent être comprises entre 0 et 24.");
+      return;
+    }
+
+    // 3. Contrainte de logique (Pas de durée négative ou nulle)
+    if (end <= start) {
+      setError("L'heure de fin doit être après l'heure de début.");
+      return;
+    }
+
+    // 4. Calcul et stockage
+    const diff = end - start;
+    setDuration(diff);
+  };
   async function fetchCurrentUserFiliere() {
     const user = auth.currentUser;
     if (!user) return;
@@ -171,10 +207,34 @@ export default function CoursPage() {
     );
   });
 
+  const calculateHourDifference = (range: string): number => {
+    // 1. Extraction via Regex
+    const match = range.match(/^(\d{1,2})-(\d{1,2})$/);
+
+    if (!match) {
+      throw new Error("Format invalide. Utilisez 'Début-Fin' (ex: 8-10)");
+    }
+
+    const start = parseInt(match[1], 10);
+    const end = parseInt(match[2], 10);
+
+    // 2. Validation des bornes (0h à 24h)
+    if (start < 0 || start > 23 || end < 0 || end > 24) {
+      throw new Error("Les heures doivent être comprises entre 0 et 24");
+    }
+
+    // 3. Validation de la logique (Pas de durée négative ou nulle)
+    if (end <= start) {
+      throw new Error("L'heure de fin doit être supérieure à l'heure de début");
+    }
+
+    return end - start;
+  };
+
   // ✅ CALCUL DU TOTAL D'HEURES PAR ENSEIGNANT
   const statsParProf = filteredCours.reduce((acc: any, curr) => {
     // Extraire le nombre de la chaîne (ex: "2h" -> 2)
-    const heures = parseInt(curr.duree) || 0;
+    const heures = calculateHourDifference(curr.duree) || 0;
     if (!acc[curr.teacherName]) {
       acc[curr.teacherName] = 0;
     }
@@ -201,11 +261,13 @@ export default function CoursPage() {
           <input
             placeholder="Nom du cours"
             value={nom}
+            type="text"
+            pattern="[A-Za-z]+"
             onChange={(e) => setNom(e.target.value)}
             className="border p-2 rounded"
           />
           <input
-            placeholder="Durée (ex: 2h ou 2)"
+            placeholder="Durée(ex:8-10)"
             value={duree}
             onChange={(e) => setDuree(e.target.value)}
             className="border p-2 rounded"
@@ -298,6 +360,8 @@ export default function CoursPage() {
         <input
           placeholder="Filtrer durée"
           value={filterDuree}
+          type="number"
+          maxLength={2}
           onChange={(e) => setFilterDuree(e.target.value)}
           className="border p-2 rounded bg-white"
         />
@@ -335,7 +399,7 @@ export default function CoursPage() {
                 <td className="px-4 py-3 font-medium">{c.nom}</td>
                 <td className="px-4 py-3">{c.teacherName}</td>
                 <td className="px-4 py-3 text-center font-semibold">
-                  {c.duree}h
+                  {calculateHourDifference(c.duree)}h ({c.duree}h)
                 </td>
                 <td className="px-4 py-3 text-center">{c.jour}</td>
                 <td className="px-4 py-3 text-center">{c.filiere}</td>

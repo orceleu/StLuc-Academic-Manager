@@ -21,6 +21,7 @@ export type Responsable = {
   name: string;
   email: string;
   password: string;
+  phone: string;
   filiere: string;
   role: string;
 };
@@ -42,6 +43,8 @@ export default function FilierePage() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+
   const [password, setPassword] = useState("");
   const router = useRouter();
   const { role } = useAuth();
@@ -130,6 +133,7 @@ export default function FilierePage() {
       uid,
       name,
       email,
+      phone,
       password,
       filiere,
       role: "responsable", // ✅ FIX
@@ -138,6 +142,8 @@ export default function FilierePage() {
     setFiliere("");
     setName("");
     setEmail("");
+    setPhone("");
+
     setPassword("");
 
     fetchResponsables();
@@ -148,6 +154,7 @@ export default function FilierePage() {
     await updateDoc(doc(db, "users", editData.uid), {
       name: editData.name,
       filiere: editData.filiere,
+      phone: editData.phone,
     });
 
     setEditData(null);
@@ -236,6 +243,14 @@ export default function FilierePage() {
             onChange={(e) => setEmail(e.target.value)}
             className="border p-2 rounded"
           />
+          <input
+            placeholder="Phone"
+            value={phone}
+            type="number"
+            maxLength={8}
+            onChange={(e) => setPhone(e.target.value)}
+            className="border p-2 rounded"
+          />
 
           <input
             placeholder="Password"
@@ -265,6 +280,7 @@ export default function FilierePage() {
               <th className="px-4 py-3 text-center">Filière</th>
               <th className="px-4 py-3 text-left">Nom</th>
               <th className="px-4 py-3 text-left">Email</th>
+              <th className="px-4 py-3 text-left">TelePhone</th>
               <th className="px-4 py-3 text-center">Password</th>
               <th className="px-4 py-3 text-center">Role</th>
               <th className="px-4 py-3 text-center">Actions</th>
@@ -290,6 +306,8 @@ export default function FilierePage() {
 
                 {/* EMAIL */}
                 <td className="px-4 py-3">{r.email}</td>
+                {/* Phone */}
+                <td className="px-4 py-3">{r.phone}</td>
 
                 {/* PASSWORD */}
                 <td className="px-4 py-3 text-center">
@@ -339,6 +357,14 @@ export default function FilierePage() {
                 value={editData.name}
                 onChange={(e) =>
                   setEditData({ ...editData, name: e.target.value })
+                }
+                className="border p-2 w-full"
+              />{" "}
+              <input
+                type="number"
+                value={editData.phone}
+                onChange={(e) =>
+                  setEditData({ ...editData, phone: e.target.value })
                 }
                 className="border p-2 w-full"
               />{" "}

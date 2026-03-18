@@ -22,6 +22,7 @@ export type Teacher = {
   uid: string;
   name: string;
   email: string;
+  phone: string;
   password: string;
   filiere: string;
   cours: string;
@@ -42,6 +43,8 @@ export default function TeacherPage() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+
   const [password, setPassword] = useState("");
   const [filiere, setFiliere] = useState("");
   const [cours, setCours] = useState("");
@@ -167,6 +170,7 @@ export default function TeacherPage() {
       uid,
       name,
       email,
+      phone,
       password,
       filiere,
 
@@ -175,6 +179,7 @@ export default function TeacherPage() {
 
     setName("");
     setEmail("");
+    setPhone("");
     setPassword("");
     setFiliere("");
     setCours("");
@@ -207,6 +212,7 @@ export default function TeacherPage() {
       name: editData.name,
       filiere: editData.filiere,
       cours: editData.cours,
+      phone: editData.phone,
     });
 
     setEditData(null);
@@ -248,6 +254,12 @@ export default function TeacherPage() {
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            className="border p-2 rounded"
+          />
+          <input
+            placeholder="Telephone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
             className="border p-2 rounded"
           />
 
@@ -293,6 +305,7 @@ export default function TeacherPage() {
               <th className="px-4 py-3 text-left">Cours</th>
               <th className="px-4 py-3 text-center">Filière</th>
               <th className="px-4 py-3 text-left">Email</th>
+              <th className="px-4 py-3 text-left">Telephone</th>
               <th className="px-4 py-3 text-center">Password</th>
               <th className="px-4 py-3 text-center">Role</th>
               <th className="px-4 py-3 text-center">Actions</th>
@@ -327,6 +340,7 @@ export default function TeacherPage() {
 
                 {/* EMAIL */}
                 <td className="px-4 py-3">{t.email}</td>
+                <td className="px-4 py-3">{t.phone}</td>
 
                 {/* PASSWORD */}
                 <td className="px-4 py-3 text-center">
@@ -379,9 +393,9 @@ export default function TeacherPage() {
             />
 
             <input
-              value={editData.cours}
+              value={editData.phone}
               onChange={(e) =>
-                setEditData({ ...editData, cours: e.target.value })
+                setEditData({ ...editData, phone: e.target.value })
               }
               className="border p-2 w-full mb-2"
             />

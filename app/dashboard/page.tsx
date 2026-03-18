@@ -9,6 +9,7 @@ import { Responsable } from "./department/page";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { Teacher } from "./teacher/page";
+import TeacherReadOnlyView from "../clientComponents/TeacherInfo";
 
 export default function AdminOverview() {
   const router = useRouter();
