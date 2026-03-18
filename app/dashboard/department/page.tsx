@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import {
   collection,
   addDoc,
@@ -11,17 +10,14 @@ import {
   updateDoc,
   setDoc,
 } from "firebase/firestore";
-
-import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  User,
-} from "firebase/auth";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "@/app/firebase/config";
+import { useAuth } from "@/app/clientComponents/AuthContext";
+import { Router } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-type Responsable = {
-  id?: string;
+export type Responsable = {
+  uid: string;
   name: string;
   email: string;
   password: string;
@@ -29,20 +25,50 @@ type Responsable = {
   role: string;
 };
 
+export type Filiere = {
+  id?: string;
+  nom: string;
+  type: string;
+};
+
 export default function FilierePage() {
   const [responsables, setResponsables] = useState<Responsable[]>([]);
+  const [filieres, setFilieres] = useState<Filiere[]>([]);
+
   const [deleteData, setDeleteData] = useState<any>(null);
+  const [editData, setEditData] = useState<any>(null);
 
   const [filiere, setFiliere] = useState("");
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("responsable");
   const router = useRouter();
-  const [editData, setEditData] = useState<any>(null);
+  const { role } = useAuth();
+
+  const [filiereNom, setFiliereNom] = useState("");
+  const [filiereType, setFiliereType] = useState("technique");
 
   const usersRef = collection(db, "users");
+  const filiereRef = collection(db, "filieres");
 
+  /* ======================== */
+  async function fetchFilieres() {
+    const snapshot = await getDocs(filiereRef);
+
+    const list: any = [];
+
+    snapshot.forEach((docu) => {
+      list.push({
+        id: docu.id,
+        ...docu.data(),
+      });
+    });
+
+    setFilieres(list);
+  }
+
+  /* ======================== */
   async function fetchResponsables() {
     const snapshot = await getDocs(usersRef);
 
@@ -53,7 +79,7 @@ export default function FilierePage() {
 
       if (data.role === "responsable") {
         list.push({
-          id: docu.id,
+          uid: docu.id,
           ...data,
         });
       }
@@ -64,29 +90,49 @@ export default function FilierePage() {
 
   useEffect(() => {
     fetchResponsables();
+    fetchFilieres();
   }, []);
 
-  // ajouter responsable
+  /* ======================== */
+  async function addFiliere() {
+    if (!filiereNom) return;
+
+    await addDoc(filiereRef, {
+      nom: filiereNom,
+      type: filiereType,
+    });
+
+    setFiliereNom("");
+    setFiliereType("technique");
+
+    fetchFilieres();
+  }
+
+  /* ======================== */
   async function addResponsable() {
+    if (!filiere) {
+      alert("Choisissez une filière");
+      return;
+    }
+
+    const exist = responsables.find((r) => r.filiere === filiere);
+
+    if (exist) {
+      alert("Cette filière possède déjà un responsable");
+      return;
+    }
+
     const cred = await createUserWithEmailAndPassword(auth, email, password);
 
     const uid = cred.user.uid;
 
-    /* await addDoc(usersRef, {
+    await setDoc(doc(db, "users", uid), {
       uid,
       name,
       email,
       password,
       filiere,
-      role,
-    });*/
-    await setDoc(doc(db, "users", email), {
-      uid,
-      name,
-      email,
-      password,
-      filiere,
-      role,
+      role: "responsable", // ✅ FIX
     });
 
     setFiliere("");
@@ -97,21 +143,11 @@ export default function FilierePage() {
     fetchResponsables();
   }
 
-  // supprimer
-  async function deleteResponsable(id: string) {
-    await deleteDoc(doc(db, "users", id));
-
-    fetchResponsables();
-  }
-
-  // modifier
+  /* ======================== */
   async function updateResponsable() {
-    await updateDoc(doc(db, "users", editData.id), {
+    await updateDoc(doc(db, "users", editData.uid), {
       name: editData.name,
-      email: editData.email,
-      password: editData.password,
       filiere: editData.filiere,
-      role: editData.role,
     });
 
     setEditData(null);
@@ -119,26 +155,73 @@ export default function FilierePage() {
     fetchResponsables();
   }
 
+  /* ======================== */
+  async function deleteResponsable(uid: string) {
+    await deleteDoc(doc(db, "users", uid));
+
+    fetchResponsables();
+  }
+
+  if (role !== "admin") {
+    setTimeout(() => {
+      router.push("/dashboard");
+    }, 2000);
+
+    return (
+      <p className="text-center font-bold text-red-600 p-25">Non autorisé</p>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto p-8">
       <h1 className="text-3xl font-bold mb-8">Gestion des Filières</h1>
-
-      {/* FORMULAIRE */}
-
+      {/* AJOUT FILIERE */}
       <div className="bg-gray-100 p-6 rounded-lg mb-10">
-        <h2 className="text-xl font-semibold mb-4">Ajouter Responsable</h2>
-        <p>
-          Les responsables pourront se connecter avec leur email et leur mot de
-          passe. (Des restrictions d’accès sont appliquées selon le rôle de
-          chaque utilisateur).{" "}
-        </p>
+        <h2 className="text-xl font-semibold mb-4">Ajouter Filière</h2>
+
         <div className="grid md:grid-cols-2 gap-4">
           <input
-            placeholder="Filière"
+            placeholder="Nom de la filière"
+            value={filiereNom}
+            onChange={(e) => setFiliereNom(e.target.value)}
+            className="border p-2 rounded"
+          />
+
+          <select
+            value={filiereType}
+            onChange={(e) => setFiliereType(e.target.value)}
+            className="border p-2 rounded"
+          >
+            <option value="technique">Technique</option>
+            <option value="universite">Université</option>
+          </select>
+        </div>
+
+        <button
+          onClick={addFiliere}
+          className="mt-4 bg-green-600 text-white px-6 py-2 rounded"
+        >
+          Ajouter Filière
+        </button>
+      </div>
+      {/* AJOUT RESPONSABLE */}
+      <div className="bg-gray-100 p-6 rounded-lg mb-10">
+        <h2 className="text-xl font-semibold mb-4">Ajouter Responsable</h2>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <select
             value={filiere}
             onChange={(e) => setFiliere(e.target.value)}
             className="border p-2 rounded"
-          />
+          >
+            <option value="">Choisir une filière</option>
+
+            {filieres.map((f) => (
+              <option key={f.id} value={f.nom}>
+                {f.nom} ({f.type})
+              </option>
+            ))}
+          </select>
 
           <input
             placeholder="Nom prénom"
@@ -160,29 +243,20 @@ export default function FilierePage() {
             onChange={(e) => setPassword(e.target.value)}
             className="border p-2 rounded"
           />
-
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="border p-2 rounded bg-gray-200"
-            disabled
-          >
-            <option value="admin">admin</option>
-            <option value="responsable">responsable</option>
-            <option value="student">student</option>
-          </select>
         </div>
 
         <button
           onClick={addResponsable}
           className="mt-4 bg-blue-600 text-white px-6 py-2 rounded"
         >
-          Ajouter
+          Ajouter Responsable
         </button>
       </div>
-
       {/* TABLE */}
-
+      <p className="mb-3">
+        <span className="font-bold text-gray-500">Nombre :</span>
+        <span className="text-green-500 ml-2">{responsables.length}</span>
+      </p>
       <table className="w-full border">
         <thead className="bg-gray-200">
           <tr>
@@ -197,7 +271,7 @@ export default function FilierePage() {
 
         <tbody>
           {responsables.map((r) => (
-            <tr key={r.id} className="border-t">
+            <tr key={r.uid} className="border-t">
               <td className="p-2">{r.filiere}</td>
               <td>{r.name}</td>
               <td>{r.email}</td>
@@ -223,80 +297,59 @@ export default function FilierePage() {
           ))}
         </tbody>
       </table>
-
-      {/* MODAL EDIT */}
-
+      {/* MODAL EDIT */}{" "}
       {editData && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          {" "}
           <div className="bg-white p-6 rounded-lg w-96">
-            <h2 className="text-xl font-semibold mb-4">Modifier</h2>
-
+            {" "}
+            <h2 className="text-xl font-semibold mb-4">Modifier</h2>{" "}
             <div className="space-y-3">
-              <input
-                value={editData.filiere}
-                onChange={(e) =>
-                  setEditData({ ...editData, filiere: e.target.value })
-                }
-                className="border p-2 w-full"
-              />
-
+              {" "}
               <input
                 value={editData.name}
                 onChange={(e) =>
                   setEditData({ ...editData, name: e.target.value })
                 }
                 className="border p-2 w-full"
-              />
-
-              <input
-                value={editData.email}
-                disabled
-                onChange={(e) =>
-                  setEditData({ ...editData, email: e.target.value })
-                }
-                className="border p-2 w-full bg-gray-100"
-              />
-
-              <input
-                value={editData.password}
-                disabled
-                onChange={(e) =>
-                  setEditData({ ...editData, password: e.target.value })
-                }
-                className="border p-2 w-full bg-gray-100"
-              />
-
+              />{" "}
               <select
-                value={editData.role}
+                value={editData.filiere}
                 onChange={(e) =>
-                  setEditData({ ...editData, role: e.target.value })
+                  setEditData({ ...editData, filiere: e.target.value })
                 }
                 className="border p-2 w-full"
               >
-                <option value="admin">admin</option>
-                <option value="responsable">responsable</option>
-                <option value="student">student</option>
-              </select>
-            </div>
-
+                {" "}
+                {filieres.map((f) => (
+                  <option key={f.id} value={f.nom}>
+                    {" "}
+                    {f.nom}{" "}
+                  </option>
+                ))}{" "}
+              </select>{" "}
+            </div>{" "}
             <div className="flex gap-3 mt-4">
+              {" "}
               <button
                 onClick={updateResponsable}
                 className="bg-green-600 text-white px-4 py-2 rounded"
               >
-                Sauvegarder
-              </button>
-
+                {" "}
+                Sauvegarder{" "}
+              </button>{" "}
               <button
                 onClick={() => setEditData(null)}
                 className="bg-gray-400 text-white px-4 py-2 rounded"
               >
-                Annuler
-              </button>
-            </div>
-          </div>
+                {" "}
+                Annuler{" "}
+              </button>{" "}
+            </div>{" "}
+          </div>{" "}
         </div>
       )}
+      {/* DELETE */}
       {deleteData && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg w-96">
@@ -304,19 +357,13 @@ export default function FilierePage() {
               Confirmer la suppression
             </h2>
 
-            <p className="text-gray-600 mb-4">
-              Voulez-vous vraiment supprimer
-              <span className="font-semibold"> {deleteData.name}</span> ?
-            </p>
+            <p className="mb-4">Supprimer {deleteData.name} ?</p>
 
             <div className="flex gap-3">
               <button
                 onClick={async () => {
-                  await deleteDoc(doc(db, "users", deleteData.id));
-
+                  await deleteResponsable(deleteData.uid);
                   setDeleteData(null);
-
-                  fetchResponsables();
                 }}
                 className="bg-red-600 text-white px-4 py-2 rounded"
               >

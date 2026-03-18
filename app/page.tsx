@@ -1,9 +1,12 @@
+"use client";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import NavBar from "./clientComponents/Navbar";
 import Footer from "./clientComponents/Footer";
+import { useAuth } from "./clientComponents/AuthContext";
 
 export default function Home() {
+  const { user, role, loading } = useAuth();
   return (
     <>
       <NavBar />
@@ -30,7 +33,7 @@ export default function Home() {
             href="/login"
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
           >
-            Se connecter
+            {user == null ? <p>Se connecter</p> : <p>Dashboard</p>}
           </a>
 
           <button className="border border-gray-300 hover:bg-gray-100 px-6 py-3 rounded-lg font-medium">

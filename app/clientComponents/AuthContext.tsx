@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (snap.exists()) {
         const data = snap.data();
         setRole(data.role);
+        console.log(data.role);
       }
     } catch (err) {
       console.error(err);
@@ -47,7 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(currentUser);
 
       if (currentUser) {
-        await fetchRole(currentUser.email!!);
+        await fetchRole(currentUser.uid);
+        //console.log(currentUser);
       } else {
         setRole(null);
       }
