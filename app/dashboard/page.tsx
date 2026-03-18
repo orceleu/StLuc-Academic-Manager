@@ -15,9 +15,10 @@ export default function AdminOverview() {
   const [responsables, setResponsables] = useState<Responsable[]>([]);
   const [teacher, setTeacher] = useState<Teacher[]>([]);
 
-  const { user, role, loading } = useAuth();
+  const { user, role, loading, currentFiliere } = useAuth();
   console.log(role);
   const usersRef = collection(db, "users");
+
   async function fetchResponsables() {
     const snapshot = await getDocs(usersRef);
 
@@ -108,7 +109,13 @@ export default function AdminOverview() {
               <p>
                 Enseignant:{" "}
                 <span className="text-green-600 font-bold">
-                  {teacher.length}
+                  {
+                    teacher.filter(
+                      (t) =>
+                        currentFiliere === "directeur" ||
+                        t.filiere === currentFiliere,
+                    ).length
+                  }{" "}
                 </span>
               </p>
             </div>

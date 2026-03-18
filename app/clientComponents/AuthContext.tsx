@@ -14,18 +14,22 @@ import { auth, db } from "../firebase/config";
 type AuthContextType = {
   user: User | null;
   role: string | null;
+  currentFiliere: string | null;
   loading: boolean;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   role: null,
+  currentFiliere: null,
   loading: true,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [currentFiliere, setCurrentFiliere] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
 
   const fetchRole = async (uid: string) => {
@@ -36,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (snap.exists()) {
         const data = snap.data();
         setRole(data.role);
+        setCurrentFiliere(data.filiere);
         console.log(data.role);
       }
     } catch (err) {
@@ -61,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, role, loading }}>
+    <AuthContext.Provider value={{ user, role, loading, currentFiliere }}>
       {children}
     </AuthContext.Provider>
   );
