@@ -117,7 +117,7 @@ export default function AdminOverview() {
           {/* ETUDIANTS */}
 
           <div
-            onClick={() => router.push("/etudiants")}
+            onClick={() => router.push("/dashboard/students")}
             className="cursor-pointer bg-white border rounded-xl p-6 shadow-sm hover:shadow-lg transition"
           >
             <h2 className="text-xl font-semibold mb-2">Étudiants</h2>
@@ -127,7 +127,7 @@ export default function AdminOverview() {
           {/* COURS */}
 
           <div
-            onClick={() => router.push("/etudiants")}
+            onClick={() => router.push("/dashboard/cours")}
             className="cursor-pointer bg-white border rounded-xl p-6 shadow-sm hover:shadow-lg transition"
           >
             <h2 className="text-xl font-semibold mb-2">Cours</h2>
