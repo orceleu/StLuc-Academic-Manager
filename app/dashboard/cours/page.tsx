@@ -418,6 +418,12 @@ export default function CoursPage() {
                     Statut
                   </button>
                   <button
+                    onClick={() => toggleActive(c)}
+                    className="text-blue-600 mr-4 hover:text-blue-800 underline"
+                  >
+                    Modifier
+                  </button>
+                  <button
                     onClick={() => deleteCours(c.id!)}
                     className="text-red-600 hover:text-red-800 underline"
                   >
