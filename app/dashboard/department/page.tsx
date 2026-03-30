@@ -133,9 +133,7 @@ export default function FilierePage() {
 
   return (
     <div className="max-w-6xl mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-8">
-        Gestion des Filières (Neon DB)
-      </h1>
+      <h1 className="text-3xl font-bold mb-8">Gestion des Filières</h1>
       {/* BLOC AJOUT FILIERE */}
       <div className="bg-gray-100 p-6 rounded-lg mb-10">
         <h2 className="text-xl font-semibold mb-4">Ajouter Filière</h2>

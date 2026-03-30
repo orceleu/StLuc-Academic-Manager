@@ -1,510 +1,175 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  updateDoc,
-} from "firebase/firestore";
-import { db } from "@/app/firebase/config";
-import { Filiere } from "../department/page";
-import { Cours } from "../cours/page";
+import { useState, useEffect } from "react";
+import { Search, Filter, Calendar, BookOpen, Hash, User } from "lucide-react";
+import { getDetailedStudents } from "@/app/neon/request";
 
-/*type Student = {
-  id: string;
-  name: string;
-  filiere: string;
-  retakes: number; // 🔥 nombre de reprise
-  grades: {
-    [subject: string]: number; // 🔥 notes sur 100
-  };*/
-type Student = {
-  id?: string;
-  name: string;
-  filiere: string;
-  retakes: number;
-  grades: {
-    [coursId: string]: number;
-  };
-  lastUpdated: string;
-};
+export default function StudentTable() {
+  const [students, setStudents] = useState<any[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-//const subjects = ["Math", "Physique", "Electronique", "Programmation"];
+  // États des filtres
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterYear, setFilterYear] = useState("");
+  const [filterFiliere, setFilterFiliere] = useState("");
 
-export default function PalmaresPage() {
-  const [filieres, setFilieres] = useState<Filiere[]>([]);
-  const [selectedFiliere, setSelectedFiliere] = useState<string>("");
-  const [search, setSearch] = useState("");
-  const [cours, setCours] = useState<Cours[]>([]);
-  const filiereRef = collection(db, "filieres");
-  const [students, setStudents] = useState<Student[]>([]);
-  const [editData, setEditData] = useState<any>(null);
-  const [deleteData, setDeleteData] = useState<any>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newStudent, setNewStudent] = useState({
-    name: "",
-  });
-  const [name, setName] = useState("");
-
-  async function fetchStudents() {
-    const snapshot = await getDocs(collection(db, "students"));
-
-    const list: Student[] = [];
-
-    snapshot.forEach((doc) => {
-      list.push({
-        id: doc.id,
-        ...(doc.data() as Student),
-      });
-    });
-
-    setStudents(list);
-  }
-  // 🔥 Filtre + moyenne + tri
   useEffect(() => {
-    fetchCours();
-    fetchStudents();
+    loadStudents();
   }, []);
-  async function addStudent(student: Student) {
-    await addDoc(collection(db, "students"), student);
-    fetchStudents(); // refresh
-  }
 
-  async function updateStudent(id: string, data: Partial<Student>) {
-    const ref = doc(db, "students", id);
-
-    await updateDoc(ref, {
-      ...data,
-      lastUpdated: new Date().toISOString(), // 🔥 auto update date
-    });
-  }
-
-  async function deleteStudent(id: string) {
-    await deleteDoc(doc(db, "students", id));
-    fetchStudents();
-  }
-
-  async function fetchCours() {
-    const snapshot = await getDocs(collection(db, "cours"));
-
-    const list: Cours[] = [];
-
-    snapshot.forEach((doc) => {
-      list.push({
-        id: doc.id,
-        ...(doc.data() as Cours),
-      });
-    });
-
-    setCours(list);
-  }
   useEffect(() => {
-    fetchFilieres();
-  }, []);
-  const coursFiltres = useMemo(() => {
-    return cours.filter((c) => c.filiere === selectedFiliere && c.active);
-  }, [cours, selectedFiliere]);
-  async function fetchFilieres() {
-    const snapshot = await getDocs(collection(db, "filieres"));
+    applyFilters();
+  }, [searchTerm, filterYear, filterFiliere, students]);
 
-    const list: Filiere[] = [];
-
-    snapshot.forEach((docu) => {
-      list.push({
-        id: docu.id,
-        ...docu.data(),
-      } as Filiere);
-    });
-
-    setFilieres(list);
-
-    // optionnel: sélectionner la première filière automatiquement
-    if (list.length > 0) {
-      setSelectedFiliere(list[0].nom); // adapte selon ton champ
-    }
+  async function loadStudents() {
+    setLoading(true);
+    const data = await getDetailedStudents();
+    setStudents(data);
+    setLoading(false);
   }
-  const filteredStudents = useMemo(() => {
-    return students
-      .filter((s) => {
-        return (
-          s.filiere === selectedFiliere &&
-          s.name.toLowerCase().includes(search.toLowerCase())
-        );
-      })
-      .map((student) => {
-        const grades = coursFiltres.map((c) => student.grades[c.nom] || 0);
 
-        const total = grades.reduce((a, b) => a + b, 0);
-        const average = coursFiltres.length ? total / coursFiltres.length : 0;
+  function applyFilters() {
+    let temp = students.filter((s) => {
+      const matchName = s.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchMatricule = s.matricule
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchYear = filterYear === "" || s.year_name === filterYear;
+      const matchFiliere =
+        filterFiliere === "" || s.filiere_name === filterFiliere;
 
-        // 🔥 calcul auto des reprises
-        const retakes = grades.filter((g) => g < 70).length;
-        return {
-          ...student,
-          average,
-          total,
-          retakes,
-        };
-      })
-      .sort((a, b) => b.average - a.average);
-  }, [selectedFiliere, search]); // ✅ IMPORTANT
-
-  // ✅ Export individuel
-  const exportToExcel = (student: any) => {
-    const data = [
-      ["Relevé de notes"],
-      ["Filière", student.filiere],
-      ["Nom", student.name],
-      ["Reprises", student.retakes],
-      [],
-      ["Matière", "Note (/100)"],
-      ...coursFiltres.map((s) => [s, student.grades[s.nom] || 0]),
-      [],
-      ["Total", `${student.total}/${coursFiltres.length * 100}`],
-      ["Moyenne", `${student.average.toFixed(2)}/100`],
-    ];
-
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Relevé");
-
-    const buffer = XLSX.write(wb, {
-      bookType: "xlsx",
-      type: "array",
+      return (matchName || matchMatricule) && matchYear && matchFiliere;
     });
-    XLSX.utils.book_append_sheet(wb, ws, selectedFiliere || "Filiere");
+    setFilteredStudents(temp);
+  }
 
-    saveAs(new Blob([buffer]), `Palmares_${selectedFiliere || "filiere"}.xlsx`);
-
-    //saveAs(new Blob([buffer]), `Releve_${student.name}.xlsx`);
-  };
-
-  // ✅ Export filière
-  const exportFiliereToExcel = () => {
-    const header = [
-      "Nom",
-      ...coursFiltres,
-      "Reprises",
-      "Total",
-      "Moyenne (/100)",
-    ];
-
-    const data = filteredStudents.map((s: any) => [
-      s.name,
-      ...coursFiltres.map((c) => s.grades[c.nom] || 0),
-      s.retakes,
-      `${s.total}/${coursFiltres.length * 100}`,
-      `${s.average.toFixed(2)}/100`,
-    ]);
-
-    const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-    const wb = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(wb, ws, selectedFiliere);
-
-    const buffer = XLSX.write(wb, {
-      bookType: "xlsx",
-      type: "array",
-    });
-
-    saveAs(new Blob([buffer]), `Palmares_${selectedFiliere}.xlsx`);
-  };
+  // Extraire les options uniques pour les sélecteurs
+  const uniqueYears = Array.from(
+    new Set(students.map((s) => s.year_name).filter(Boolean)),
+  );
+  const uniqueFilieres = Array.from(
+    new Set(students.map((s) => s.filiere_name).filter(Boolean)),
+  );
 
   return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="flex justify-between mb-4">
-        <h1 className="text-2xl font-bold">Filière : {selectedFiliere}</h1>
+    <div className="space-y-6">
+      {/* BARRE DE FILTRES */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-2xl border shadow-sm">
+        <div className="relative">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            size={18}
+          />
+          <input
+            type="text"
+            placeholder="Nom ou Matricule..."
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 transition"
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
 
-        <button
-          onClick={exportFiliereToExcel}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-        >
-          Exporter {selectedFiliere}
-        </button>
-      </div>
-      {/* Filtres */}
-      <div className="flex gap-4 mb-4">
         <select
-          value={selectedFiliere}
-          onChange={(e) => setSelectedFiliere(e.target.value)}
-          className="border p-2 rounded"
+          className="p-2 bg-gray-50 border rounded-xl outline-none"
+          onChange={(e) => setFilterFiliere(e.target.value)}
         >
-          {filieres.map((f) => (
-            <option key={f.id} value={f.nom}>
-              {f.nom}
+          <option value="">Toutes les filières</option>
+          {uniqueFilieres.map((f) => (
+            <option key={f} value={f}>
+              {f}
             </option>
           ))}
         </select>
 
-        <input
-          type="text"
-          placeholder="Recherche par nom"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="border p-2 rounded"
-        />
-      </div>
-      {/* Tableau */}
-      <table className="min-w-full border">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="border p-2">Rang</th>
-            <th className="border p-2">Nom</th>
-            {coursFiltres.map((c) => (
-              <th key={c.id} className="border p-2">
-                {c.nom}
-              </th>
-            ))}
-            <th className="border p-2">Reprises</th>
-            <th className="border p-2">Total</th>
-            <th className="border p-2">Moyenne</th>
-            <th className="border p-2">Action</th>
-            <th className="border p-2">Dernière modif</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {filteredStudents.map((s: any, i) => (
-            <tr key={s.id} className="text-center">
-              <td className="border p-2">{i + 1}</td>
-
-              <td className="border p-2 font-semibold">{s.name}</td>
-
-              {/* 🔥 Notes simples + rouge si <70 */}
-              {coursFiltres.map((c) => {
-                const grade = s.grades[c.nom] || 0;
-
-                return (
-                  <td
-                    key={c.id}
-                    className={`border p-2 ${
-                      grade < 70 ? "text-red-600" : "text-green-600"
-                    }`}
-                  >
-                    {grade}
-                  </td>
-                );
-              })}
-
-              <td className="border p-2">{s.retakes}</td>
-
-              <td className="border p-2 font-bold">
-                {s.total}/{coursFiltres.length * 100}
-              </td>
-
-              <td
-                className={`border p-2 font-bold ${
-                  s.average < 70 ? "text-red-600" : "text-green-600"
-                }`}
-              >
-                {s.average.toFixed(2)}/100
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex justify-center gap-3">
-                  <button
-                    onClick={() => {
-                      const newGrades = { ...s.grades };
-
-                      coursFiltres.forEach((c) => {
-                        if (newGrades[c.nom] === undefined) {
-                          newGrades[c.nom] = 0;
-                        }
-                      });
-
-                      setEditData({ ...s, grades: newGrades });
-                    }}
-                    className="text-blue-600 hover:underline text-sm"
-                  >
-                    Modifier
-                  </button>
-
-                  <button
-                    onClick={() => setDeleteData(s)}
-                    className="text-red-600 hover:underline text-sm"
-                  >
-                    Supprimer
-                  </button>
-                </div>
-              </td>
-
-              <td className="border p-2">
-                <button
-                  onClick={() => exportToExcel(s)}
-                  className="bg-green-600 text-white px-2 py-1 rounded"
-                >
-                  Export
-                </button>
-              </td>
-              <td className="border p-2 text-sm">
-                {s.lastUpdated
-                  ? new Date(s.lastUpdated).toLocaleDateString()
-                  : "-"}
-              </td>
-            </tr>
+        <select
+          className="p-2 bg-gray-50 border rounded-xl outline-none"
+          onChange={(e) => setFilterYear(e.target.value)}
+        >
+          <option value="">Toutes les années</option>
+          {uniqueYears.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
           ))}
-        </tbody>
-      </table>
-      {/* MODAL EDIT */}{" "}
-      {editData && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-[500px]">
-            <h2 className="text-xl font-semibold mb-4">Modifier étudiant</h2>
+        </select>
+      </div>
 
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-              {/* Nom */}
-              <input
-                value={editData.name}
-                onChange={(e) =>
-                  setEditData({ ...editData, name: e.target.value })
-                }
-                className="border p-2 w-full"
-                placeholder="Nom"
-              />
+      {/* TABLEAU */}
+      <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-gray-50 border-b">
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Étudiant
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Matricule
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Filière
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Session/Année
+              </th>
+              <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Date Inscription
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="p-10 text-center text-gray-400">
+                  Chargement...
+                </td>
+              </tr>
+            ) : (
+              filteredStudents.map((s) => (
+                <tr key={s.id} className="hover:bg-gray-50 transition">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                        {s.name.charAt(0)}
+                      </div>
+                      <span className="font-semibold text-gray-700">
+                        {s.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span className="px-2 py-1 bg-gray-100 rounded-md text-xs font-mono text-gray-600">
+                      {s.matricule || "Aucun"}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-1 text-sm text-gray-600">
+                      <BookOpen size={14} className="text-emerald-500" />
+                      {s.filiere_name || "N/A"}
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <div className="text-sm">
+                      <div className="font-medium text-gray-700">
+                        {s.session_name}
+                      </div>
+                      <div className="text-gray-400 text-xs">{s.year_name}</div>
+                    </div>
+                  </td>
+                  <td className="p-4 text-sm text-gray-500 italic">
+                    {new Date(s.created_at).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
 
-              {/* 🔥 NOTES DYNAMIQUES */}
-              <div>
-                <h3 className="font-semibold mb-2">Notes</h3>
-
-                {coursFiltres.map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex justify-between items-center mb-2"
-                  >
-                    <span>{c.nom}</span>
-
-                    <input
-                      type="number"
-                      value={editData.grades[c.nom] || 0}
-                      onChange={(e) =>
-                        setEditData({
-                          ...editData,
-                          grades: {
-                            ...editData.grades,
-                            [c.nom]: Number(e.target.value),
-                          },
-                        })
-                      }
-                      className="border p-1 w-20 text-center"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ACTIONS */}
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => setEditData(null)}
-                className="px-3 py-2 bg-gray-400 text-white rounded"
-              >
-                Annuler
-              </button>
-
-              <button
-                onClick={() => {
-                  updateStudent(editData.id, {
-                    name: editData.name,
-                    retakes: editData.retakes,
-                    grades: editData.grades,
-                  });
-                  setEditData(null);
-                }}
-                className="px-3 py-2 bg-blue-600 text-white rounded"
-              >
-                Sauvegarder
-              </button>
-            </div>
+        {!loading && filteredStudents.length === 0 && (
+          <div className="p-10 text-center text-gray-400 italic">
+            Aucun étudiant trouvé pour ces critères.
           </div>
-        </div>
-      )}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h2 className="text-xl font-semibold mb-4">Ajouter étudiant</h2>
-
-            <input
-              type="text"
-              placeholder="Nom"
-              value={newStudent.name}
-              onChange={(e) =>
-                setNewStudent({ ...newStudent, name: e.target.value })
-              }
-              className="border p-2 w-full mb-3"
-            />
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="bg-gray-400 text-white px-3 py-2 rounded"
-              >
-                Annuler
-              </button>
-
-              <button
-                onClick={async () => {
-                  await addStudent({
-                    name: newStudent.name,
-                    filiere: selectedFiliere,
-                    grades: {},
-                    retakes: 0,
-                    lastUpdated: new Date().toISOString(), // 🔥
-                  });
-
-                  setShowAddModal(false);
-                  setNewStudent({ name: "" });
-                }}
-                className="bg-green-600 text-white px-3 py-2 rounded"
-              >
-                Ajouter
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {deleteData && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h2 className="text-xl font-semibold mb-4 text-red-600">
-              Confirmer suppression
-            </h2>
-
-            <p className="mb-4">
-              Supprimer <strong>{deleteData.name}</strong> ?
-            </p>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteData(null)}
-                className="bg-gray-400 text-white px-3 py-2 rounded"
-              >
-                Annuler
-              </button>
-
-              <button
-                onClick={async () => {
-                  await deleteStudent(deleteData.id);
-                  setDeleteData(null);
-                }}
-                className="bg-red-600 text-white px-3 py-2 rounded"
-              >
-                Supprimer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <button
-        onClick={() => setShowAddModal(true)}
-        className="bg-green-600 text-white px-3 py-2 rounded"
-      >
-        Ajouter étudiant
-      </button>
+        )}
+      </div>
     </div>
   );
 }

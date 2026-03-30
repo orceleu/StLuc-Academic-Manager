@@ -1,46 +1,88 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
 import NavBar from "./clientComponents/Navbar";
 import Footer from "./clientComponents/Footer";
 import { useAuth } from "./clientComponents/AuthContext";
 
 export default function Home() {
-  const { user, role, loading } = useAuth();
+  const { user } = useAuth();
+
   return (
     <>
       <NavBar />
-      <div className="flex flex-col items-center justify-center text-center px-6 py-20">
-        <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mt-25">
-          StLuc Academic Manager
-        </h1>
 
-        <p className="mt-2 text-lg text-gray-600">
-          Système de gestion des notes
-        </p>
+      {/* HERO */}
+      <section className="relative overflow-hidden">
+        {/* BACKGROUND GRADIENT */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-600 opacity-90" />
 
-        <p className="mt-4 max-w-xl text-gray-500">
-          Plateforme officielle de{" "}
-          <span className="font-semibold">Polytechnique St-Luc</span> permettant
-          aux étudiants de consulter leurs résultats, aux enseignants de gérer
-          et publier les notes, et aux responsables de filière de superviser
-          l’ensemble des performances académiques et la progression des
-          étudiants.
-        </p>
+        {/* GRID PATTERN */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff15_1px,transparent_1px),linear-gradient(to_bottom,#ffffff15_1px,transparent_1px)] bg-[size:40px_40px]" />
 
-        <div className="flex gap-4 mt-8">
-          <a
-            href="/login"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
-          >
-            {user == null ? <p>Se connecter</p> : <p>Dashboard</p>}
-          </a>
+        {/* CONTENT */}
+        <div className="relative max-w-7xl mx-auto px-6 py-28 text-center text-white">
+          <h1 className="text-4xl md:text-6xl font-bold leading-tight">
+            StLuc Academic Manager
+          </h1>
 
-          <button className="border border-gray-300 hover:bg-gray-100 px-6 py-3 rounded-lg font-medium">
-            Voir les résultats
-          </button>
+          <p className="mt-4 text-lg md:text-xl text-white/80">
+            Système intelligent de gestion académique
+          </p>
+
+          <p className="mt-6 max-w-2xl mx-auto text-white/70">
+            Plateforme officielle de{" "}
+            <span className="font-semibold text-white">
+              Polytechnique St-Luc
+            </span>{" "}
+            pour gérer les notes, suivre la progression et centraliser toute
+            l'activité académique en une seule interface moderne.
+          </p>
+
+          {/* CTA */}
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-10">
+            <a
+              href="/login"
+              className="bg-white text-indigo-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-100 transition shadow"
+            >
+              {user == null ? "Se connecter" : "Accéder au dashboard"}
+            </a>
+
+            <button className="border border-white/30 backdrop-blur-md px-6 py-3 rounded-xl font-medium hover:bg-white/10 transition">
+              Voir les résultats
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* FEATURES GRID */}
+      <section className="max-w-7xl mx-auto px-6 py-16">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {/* CARD */}
+          <div className="bg-white rounded-2xl p-6 border shadow-sm hover:shadow-lg transition">
+            <h3 className="text-lg font-semibold mb-2">
+              Gestion des étudiants
+            </h3>
+            <p className="text-gray-500 text-sm">
+              Ajout, suivi et consultation des étudiants en temps réel.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border shadow-sm hover:shadow-lg transition">
+            <h3 className="text-lg font-semibold mb-2">Gestion des notes</h3>
+            <p className="text-gray-500 text-sm">
+              Saisie, modification et calcul automatique des résultats.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border shadow-sm hover:shadow-lg transition">
+            <h3 className="text-lg font-semibold mb-2">Supervision globale</h3>
+            <p className="text-gray-500 text-sm">
+              Vue d’ensemble pour responsables et administration.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <Footer />
     </>
   );

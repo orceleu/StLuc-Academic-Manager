@@ -96,13 +96,7 @@ export default function NavBar() {
             )}
           </div>
 
-          {!user ? (
-            <Link href="/login">
-              <Button className="bg-yellow-700 hover:bg-yellow-800 rounded-full px-6">
-                Connexion
-              </Button>
-            </Link>
-          ) : (
+          {user && (
             <Button
               variant="ghost"
               size="icon"

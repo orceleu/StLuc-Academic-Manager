@@ -271,3 +271,187 @@ export async function deleteSession(id: string) {
     };
   }
 }
+export async function addStudent(name: string, matricule: string) {
+  try {
+    // Génération d'un ID unique (si tu n'utilises pas SERIAL en SQL)
+    const id = crypto.randomUUID();
+
+    await sql`
+      INSERT INTO students (id, name, matricule)
+      VALUES (${id}, ${name}, ${matricule})
+    `;
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Erreur ajout étudiant:", error);
+    // Gestion spécifique de l'erreur d'unicité du matricule
+    if (error.message.includes("unique constraint")) {
+      return { success: false, error: "Ce matricule est déjà utilisé." };
+    }
+    return {
+      success: false,
+      error: "Une erreur est survenue lors de l'ajout.",
+    };
+  }
+}
+export async function registerAndEnrollStudent(formData: {
+  name: string;
+  matricule: string;
+  filiere_id: string;
+  academic_year_id: string;
+  session_id: string;
+}) {
+  const studentId = crypto.randomUUID();
+  const enrollmentId = crypto.randomUUID();
+  // Si le matricule est vide, on envoie null à la DB
+  const cleanMatricule =
+    formData.matricule?.trim() === "" ? null : formData.matricule;
+  try {
+    // 1. Ouvrir la transaction
+    await sql`BEGIN`;
+
+    // 2. Création de l'étudiant
+    await sql`
+      INSERT INTO students (id, name, matricule)
+      VALUES (${studentId}, ${formData.name}, ${cleanMatricule})
+    `;
+
+    // 3. Création de l'enrôlement
+    await sql`
+      INSERT INTO enrollments (id, student_id, filiere_id, academic_year_id, session_id)
+      VALUES (${enrollmentId}, ${studentId}, ${formData.filiere_id}, ${formData.academic_year_id}, ${formData.session_id})
+    `;
+
+    // 4. Valider la transaction
+    await sql`COMMIT`;
+
+    revalidatePath("/admin/students");
+    return { success: true };
+  } catch (error: any) {
+    // 5. En cas d'erreur, on annule TOUT ce qui a été fait au-dessus
+    await sql`ROLLBACK`;
+
+    console.error("Erreur Transaction:", error);
+
+    if (error.message.includes("unique constraint")) {
+      return { success: false, error: "Le matricule existe déjà." };
+    }
+
+    return {
+      success: false,
+      error: "Échec de l'inscription. Les données n'ont pas été enregistrées.",
+    };
+  }
+}
+export async function getTotalStudentsCount() {
+  try {
+    // La requête renvoie un tableau d'objets, ex: [{ count: "42" }]
+    const result = await sql`SELECT COUNT(*) as count FROM students`;
+
+    // On convertit le résultat en nombre (Neon renvoie souvent le count en string)
+    return parseInt(result[0].count, 10);
+  } catch (error) {
+    console.error("Erreur lors du comptage des étudiants:", error);
+    return 0;
+  }
+}
+export async function getDetailedStudents() {
+  try {
+    return await sql`
+      SELECT 
+        s.id,
+        s.name,
+        s.matricule,
+        s.created_at,
+        f.name as filiere_name,
+        ay.name as year_name,
+        sess.name as session_name
+      FROM students s
+      LEFT JOIN enrollments e ON s.id = e.student_id
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN academic_years ay ON e.academic_year_id = ay.id
+      LEFT JOIN sessions sess ON e.session_id = sess.id
+      ORDER BY s.created_at DESC
+    `;
+  } catch (error) {
+    console.error("Erreur fetch students:", error);
+    return [];
+  }
+}
+// 1. Ajouter un Cours de base
+export async function addCourse(name: string) {
+  const id = crypto.randomUUID();
+  await sql`INSERT INTO courses (id, name) VALUES (${id}, ${name})`;
+  revalidatePath("/admin/courses");
+}
+
+// 2. Offrir un cours (Course Offering)
+export async function addCourseOffering(data: {
+  course_id: string;
+  filiere_id: string;
+  year_id: string;
+  session_id: string;
+  coefficient: number;
+}) {
+  const id = crypto.randomUUID();
+  await sql`
+    INSERT INTO course_offerings (id, course_id, filiere_id, academic_year_id, session_id, coefficient)
+    VALUES (${id}, ${data.course_id}, ${data.filiere_id}, ${data.year_id}, ${data.session_id}, ${data.coefficient})
+  `;
+  revalidatePath("/admin/courses");
+}
+
+// 3. Assigner un professeur
+export async function assignTeacher(offering_id: string, teacher_id: string) {
+  const id = crypto.randomUUID();
+  await sql`
+    INSERT INTO course_assignments (id, course_offering_id, teacher_id)
+    VALUES (${id}, ${offering_id}, ${teacher_id})
+  `;
+  revalidatePath("/admin/courses");
+}
+export async function getCourses() {
+  try {
+    const courses = await sql`
+      SELECT id, name 
+      FROM courses 
+      ORDER BY name ASC
+    `;
+    return courses;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des cours:", error);
+    return []; // Retourne un tableau vide en cas d'erreur pour éviter le crash du .map()
+  }
+}
+export async function getCourseOfferings() {
+  try {
+    const offerings = await sql`
+      SELECT 
+        co.id,
+        co.coefficient,
+        c.name AS course_name,
+        f.name AS filiere_name,
+        ay.name AS year_name,
+        s.name AS session_name
+      FROM course_offerings co
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      JOIN academic_years ay ON co.academic_year_id = ay.id
+      JOIN sessions s ON co.session_id = s.id
+      ORDER BY ay.name DESC, f.name ASC, c.name ASC
+    `;
+
+    return offerings;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des offres de cours:", error);
+    // Retourne un tableau vide pour éviter l'erreur .map() sur undefined
+    return [];
+  }
+}
+// Dans ton fichier d'actions/requêtes
+export async function getTeachers2(userFiliere?: string) {
+  // Le '?' rend l'argument optionnel
+
+  return await sql`SELECT * FROM users WHERE role = 'teacher'`;
+}

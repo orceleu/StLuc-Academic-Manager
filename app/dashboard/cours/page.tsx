@@ -1,480 +1,66 @@
 "use client";
-
-import { useEffect, useState } from "react";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-  updateDoc,
-  getDoc,
-} from "firebase/firestore";
-import { db, auth } from "@/app/firebase/config";
 import { useAuth } from "@/app/clientComponents/AuthContext";
-import { useRouter } from "next/navigation";
-
-export type Cours = {
-  id?: string;
-  nom: string;
-  teacherName: string;
-  teacherId: string;
-  filiere: string;
-  duree: string;
-  jour: string;
-  active: boolean;
-};
-
-type Filiere = {
-  id: string;
-  nom: string;
-};
-
-type Teacher = {
-  uid: string;
-  name: string;
-  filiere: string;
-};
-
-export default function CoursPage() {
-  const { role } = useAuth();
-  const router = useRouter();
-  const [timeRange, setTimeRange] = useState<string>("");
-  const [duration, setDuration] = useState<number | null>(null);
-  const [error, setError] = useState<string>("");
-
-  const [coursList, setCoursList] = useState<Cours[]>([]);
-  const [filieres, setFilieres] = useState<Filiere[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [userFiliere, setUserFiliere] = useState("");
-
-  const [nom, setNom] = useState("");
-  const [filiere, setFiliere] = useState("");
-  const [teacherId, setTeacherId] = useState("");
-  const [duree, setDuree] = useState("");
-  const [jour, setJour] = useState("");
-
-  const [filterFiliere, setFilterFiliere] = useState("");
-  const [filterTeacher, setFilterTeacher] = useState("");
-  const [filterJour, setFilterJour] = useState("");
-  const [filterDuree, setFilterDuree] = useState("");
-  const [filterActive, setFilterActive] = useState("");
-
-  const coursRef = collection(db, "cours");
-  const filiereRef = collection(db, "filieres");
-  const usersRef = collection(db, "users");
-
-  const handleCalculate = (value: string) => {
-    setTimeRange(value);
-    setError("");
-    setDuration(null);
-
-    // 1. Validation du format via Regex (ex: 8-10, 08-22, 14-15)
-    const regex = /^(\d{1,2})-(\d{1,2})$/;
-    const match = value.match(regex);
-
-    if (!match) {
-      if (value.length > 0) setError("Format invalide (ex: 8-10)");
-      return;
-    }
-
-    const start = parseInt(match[1], 10);
-    const end = parseInt(match[2], 10);
-
-    // 2. Contraintes de validité (0h - 24h)
-    if (start < 0 || start > 23 || end < 0 || end > 24) {
-      setError("Les heures doivent être comprises entre 0 et 24.");
-      return;
-    }
-
-    // 3. Contrainte de logique (Pas de durée négative ou nulle)
-    if (end <= start) {
-      setError("L'heure de fin doit être après l'heure de début.");
-      return;
-    }
-
-    // 4. Calcul et stockage
-    const diff = end - start;
-    setDuration(diff);
-  };
-  async function fetchCurrentUserFiliere() {
-    const user = auth.currentUser;
-    if (!user) return;
-    const docRef = doc(db, "users", user.uid);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      const laFiliere = data.filiere || "";
-      setUserFiliere(laFiliere);
-      if (laFiliere !== "directeur" && laFiliere !== "") {
-        setFiliere(laFiliere);
-        setFilterFiliere(laFiliere);
-      }
-    }
-  }
-
-  async function fetchFilieres() {
-    const snap = await getDocs(filiereRef);
-    const list: any = [];
-    snap.forEach((docu) => {
-      list.push({ id: docu.id, ...docu.data() });
-    });
-    setFilieres(list);
-  }
-
-  async function fetchTeachers() {
-    const snap = await getDocs(usersRef);
-    const list: any = [];
-    snap.forEach((docu) => {
-      const data = docu.data();
-      if (data.role === "teacher") {
-        list.push({ uid: docu.id, name: data.name, filiere: data.filiere });
-      }
-    });
-    setTeachers(list);
-  }
-
-  async function fetchCours() {
-    const snap = await getDocs(coursRef);
-    const list: any = [];
-    snap.forEach((docu) => {
-      list.push({ id: docu.id, ...docu.data() });
-    });
-    setCoursList(list);
-  }
-
-  useEffect(() => {
-    const loadData = async () => {
-      await fetchCurrentUserFiliere();
-      fetchCours();
-      fetchFilieres();
-      fetchTeachers();
-    };
-    loadData();
-  }, []);
-
-  const availableTeachers = teachers.filter(
-    (t) => userFiliere === "directeur" || t.filiere === userFiliere,
-  );
-
-  async function addCours() {
-    if (!nom || !teacherId || !filiere) {
-      alert("Remplir tous les champs");
-      return;
-    }
-    const teacher = teachers.find((t) => t.uid === teacherId);
-    await addDoc(coursRef, {
-      nom,
-      teacherName: teacher?.name || "",
-      teacherId,
-      filiere,
-      duree,
-      jour,
-      active: true,
-    });
-    setNom("");
-    setTeacherId("");
-    if (userFiliere === "directeur") setFiliere("");
-    setDuree("");
-    setJour("");
-    fetchCours();
-  }
-
-  async function toggleActive(cours: Cours) {
-    await updateDoc(doc(db, "cours", cours.id!), { active: !cours.active });
-    fetchCours();
-  }
-
-  async function deleteCours(id: string) {
-    if (confirm("Supprimer ce cours ?")) {
-      await deleteDoc(doc(db, "cours", id));
-      fetchCours();
-    }
-  }
-
-  const filteredCours = coursList.filter((c) => {
-    const matchesFiliere =
-      userFiliere === "directeur"
-        ? !filterFiliere || c.filiere === filterFiliere
-        : c.filiere === userFiliere;
-
-    return (
-      matchesFiliere &&
-      (!filterTeacher || c.teacherName === filterTeacher) &&
-      (!filterJour || c.jour === filterJour) &&
-      (!filterDuree || c.duree.includes(filterDuree)) &&
-      (!filterActive || String(c.active) === filterActive)
-    );
+import CourseManagementPage from "@/app/clientComponents/courses";
+import {
+  getAcademicYears,
+  getCourseOfferings,
+  getCourses,
+  getFilieres,
+  getSessions,
+  getTeachers,
+  getTeachers2,
+} from "@/app/neon/request";
+import React, { useEffect, useState } from "react";
+interface AcademicData {
+  filieres: any[];
+  sessions: any[];
+  years: any[];
+  courses: any[];
+  teacher: any[];
+  offering: any[];
+}
+export default function Page() {
+  const { role, user } = useAuth();
+  const [data, setData] = useState<AcademicData>({
+    filieres: [],
+    sessions: [],
+    years: [],
+    courses: [],
+    teacher: [],
+    offering: [],
   });
-
-  const calculateHourDifference = (range: string): number => {
-    // 1. Extraction via Regex
-    const match = range.match(/^(\d{1,2})-(\d{1,2})$/);
-
-    if (!match) {
-      throw new Error("Format invalide. Utilisez 'Début-Fin' (ex: 8-10)");
-    }
-
-    const start = parseInt(match[1], 10);
-    const end = parseInt(match[2], 10);
-
-    // 2. Validation des bornes (0h à 24h)
-    if (start < 0 || start > 23 || end < 0 || end > 24) {
-      throw new Error("Les heures doivent être comprises entre 0 et 24");
-    }
-
-    // 3. Validation de la logique (Pas de durée négative ou nulle)
-    if (end <= start) {
-      throw new Error("L'heure de fin doit être supérieure à l'heure de début");
-    }
-
-    return end - start;
-  };
-
-  // ✅ CALCUL DU TOTAL D'HEURES PAR ENSEIGNANT
-  const statsParProf = filteredCours.reduce((acc: any, curr) => {
-    // Extraire le nombre de la chaîne (ex: "2h" -> 2)
-    const heures = calculateHourDifference(curr.duree) || 0;
-    if (!acc[curr.teacherName]) {
-      acc[curr.teacherName] = 0;
-    }
-    acc[curr.teacherName] += heures;
-    return acc;
-  }, {});
-
-  if (role !== "admin" && role !== "responsable") {
-    return (
-      <p className="text-center text-red-600 font-bold p-10">Non autorisé</p>
-    );
-  }
-
+  useEffect(() => {
+    const fetchData = async () => {
+      const [f, s, y, c, t, o] = await Promise.all([
+        getFilieres(),
+        getSessions(),
+        getAcademicYears(),
+        getCourses(),
+        getTeachers2("teacher"),
+        getCourseOfferings(),
+      ]);
+      setData({
+        filieres: f || [],
+        sessions: s || [],
+        years: y || [],
+        courses: c || [],
+        teacher: t || [],
+        offering: o || [],
+      });
+    };
+    fetchData();
+    //fetchCount();
+  }, []);
   return (
-    <div className="max-w-7xl mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-8">Gestion des Cours</h1>
-
-      {/* FORMULAIRE AJOUT */}
-      <div className="bg-white p-6 shadow-sm border rounded-lg mb-10">
-        <h2 className="text-xl font-semibold mb-4 text-blue-800">
-          Ajouter un cours
-        </h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <input
-            placeholder="Nom du cours"
-            value={nom}
-            type="text"
-            pattern="[A-Za-z]+"
-            onChange={(e) => setNom(e.target.value)}
-            className="border p-2 rounded"
-          />
-          <input
-            placeholder="Durée(ex:8-10)"
-            value={duree}
-            onChange={(e) => setDuree(e.target.value)}
-            className="border p-2 rounded"
-          />
-          <select
-            value={jour}
-            onChange={(e) => setJour(e.target.value)}
-            className="border p-2 rounded"
-          >
-            <option value="">Choisir un jour</option>
-            {["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"].map((j) => (
-              <option key={j} value={j}>
-                {j}
-              </option>
-            ))}
-          </select>
-          <select
-            value={filiere}
-            onChange={(e) => setFiliere(e.target.value)}
-            disabled={userFiliere !== "directeur" && userFiliere !== ""}
-            className={`border p-2 rounded ${userFiliere !== "directeur" ? "bg-gray-100 cursor-not-allowed" : ""}`}
-          >
-            <option value="">Choisir filière</option>
-            {filieres.map((f) => (
-              <option key={f.id} value={f.nom}>
-                {f.nom}
-              </option>
-            ))}
-          </select>
-          <select
-            value={teacherId}
-            onChange={(e) => setTeacherId(e.target.value)}
-            className="border p-2 rounded"
-          >
-            <option value="">Choisir enseignant</option>
-            {availableTeachers.map((t) => (
-              <option key={t.uid} value={t.uid}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          onClick={addCours}
-          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition shadow"
-        >
-          Ajouter
-        </button>
-      </div>
-
-      {/* FILTRES */}
-      <div className="grid md:grid-cols-5 gap-4 mb-6 bg-gray-50 p-4 rounded-lg">
-        <select
-          value={filterFiliere}
-          onChange={(e) => setFilterFiliere(e.target.value)}
-          disabled={userFiliere !== "directeur" && userFiliere !== ""}
-          className={`border p-2 rounded ${userFiliere !== "directeur" ? "bg-gray-200" : "bg-white"}`}
-        >
-          <option value="">Toutes filières</option>
-          {filieres.map((f) => (
-            <option key={f.id} value={f.nom}>
-              {f.nom}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filterTeacher}
-          onChange={(e) => setFilterTeacher(e.target.value)}
-          className="border p-2 rounded bg-white"
-        >
-          <option value="">Tous enseignants</option>
-          {availableTeachers.map((t) => (
-            <option key={t.uid} value={t.name}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filterJour}
-          onChange={(e) => setFilterJour(e.target.value)}
-          className="border p-2 rounded bg-white"
-        >
-          <option value="">Tous jours</option>
-          {["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"].map((j) => (
-            <option key={j} value={j}>
-              {j}
-            </option>
-          ))}
-        </select>
-        <input
-          placeholder="Filtrer durée"
-          value={filterDuree}
-          type="number"
-          maxLength={2}
-          onChange={(e) => setFilterDuree(e.target.value)}
-          className="border p-2 rounded bg-white"
-        />
-        <select
-          value={filterActive}
-          onChange={(e) => setFilterActive(e.target.value)}
-          className="border p-2 rounded bg-white"
-        >
-          <option value="">Tous les statuts</option>
-          <option value="true">Actif</option>
-          <option value="false">Inactif</option>
-        </select>
-      </div>
-
-      {/* TABLEAU */}
-      <div className="overflow-x-auto bg-white shadow-sm border rounded-lg">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-gray-100 text-gray-700 border-b">
-            <tr>
-              <th className="px-4 py-3">Cours</th>
-              <th className="px-4 py-3">Enseignant</th>
-              <th className="px-4 py-3 text-center">Durée</th>
-              <th className="px-4 py-3 text-center">Jour</th>
-              <th className="px-4 py-3 text-center">Filière</th>
-              <th className="px-4 py-3 text-center">Statut</th>
-              <th className="px-4 py-3 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredCours.map((c, index) => (
-              <tr
-                key={c.id}
-                className={`border-b hover:bg-blue-50/30 transition ${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}
-              >
-                <td className="px-4 py-3 font-medium">{c.nom}</td>
-                <td className="px-4 py-3">{c.teacherName}</td>
-                <td className="px-4 py-3 text-center font-semibold">
-                  {calculateHourDifference(c.duree)}h ({c.duree}h)
-                </td>
-                <td className="px-4 py-3 text-center">{c.jour}</td>
-                <td className="px-4 py-3 text-center">{c.filiere}</td>
-                <td className="px-4 py-3 text-center">
-                  <span
-                    className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold ${c.active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}
-                  >
-                    {c.active ? "Actif" : "Inactif"}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <button
-                    onClick={() => toggleActive(c)}
-                    className="text-blue-600 mr-4 hover:text-blue-800 underline"
-                  >
-                    Statut
-                  </button>
-                  <button
-                    onClick={() => toggleActive(c)}
-                    className="text-blue-600 mr-4 hover:text-blue-800 underline"
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    onClick={() => deleteCours(c.id!)}
-                    className="text-red-600 hover:text-red-800 underline"
-                  >
-                    Supprimer
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ✅ SECTION CALCUL TOTAL HEURES */}
-      <div className="mt-10 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-gray-300 text-white p-6 rounded-xl shadow-lg">
-          <h3 className="text-lg font-bold mb-4 border-b border-gray-200 pb-2">
-            Récapitulatif des heures
-          </h3>
-          <div className="space-y-3">
-            {Object.keys(statsParProf).length > 0 ? (
-              Object.entries(statsParProf).map(([name, total]) => (
-                <div
-                  key={name}
-                  className="flex justify-between items-center bg-blue-800 p-3 rounded-lg"
-                >
-                  <span className="font-medium">{name}</span>
-                  <span className="bg-white text-gray-900 px-3 py-1 rounded-full font-black text-sm">
-                    {total as number} Heures/semaine
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="text-blue-300 text-sm italic">
-                Aucun cours trouvé pour ces critères.
-              </p>
-            )}
-          </div>
-          <div className="mt-4 pt-4 border-t border-blue-700 flex justify-between font-black uppercase text-xs tracking-wider">
-            <span>Total Général</span>
-            <span>
-              {
-                Object.values(statsParProf).reduce(
-                  (a: any, b: any) => a + b,
-                  0,
-                ) as number
-              }{" "}
-              H
-            </span>
-          </div>
-        </div>
-      </div>
+    <div>
+      <CourseManagementPage
+        sessions={data.sessions || []}
+        filieres={data.filieres || []}
+        courses={data.courses || []}
+        academicYears={data.years || []}
+        teachers={data.teacher || []}
+        offerings={data.offering || []}
+      />
     </div>
   );
 }
