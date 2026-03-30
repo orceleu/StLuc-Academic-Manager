@@ -14,7 +14,7 @@ import { db, auth } from "@/app/firebase/config";
 import { useAuth } from "@/app/clientComponents/AuthContext";
 import { useRouter } from "next/navigation";
 
-type Cours = {
+export type Cours = {
   id?: string;
   nom: string;
   teacherName: string;

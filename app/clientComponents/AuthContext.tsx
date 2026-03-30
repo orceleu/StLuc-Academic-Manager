@@ -8,8 +8,8 @@ import {
   ReactNode,
 } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../firebase/config";
+import { auth } from "../firebase/config"; // On garde Firebase pour l'Auth
+import { getUserRoleAndFiliere } from "../neon/request";
 
 type AuthContextType = {
   user: User | null;
@@ -29,22 +29,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [currentFiliere, setCurrentFiliere] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(true);
 
-  const fetchRole = async (uid: string) => {
+  // Remplacement de fetchRole pour utiliser Neon via la Server Action
+  const fetchRoleFromNeon = async (uid: string) => {
     try {
-      const docRef = doc(db, "users", uid);
-      const snap = await getDoc(docRef);
+      const data = await getUserRoleAndFiliere(uid);
 
-      if (snap.exists()) {
-        const data = snap.data();
+      if (data) {
         setRole(data.role);
         setCurrentFiliere(data.filiere);
         console.log(data.role);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Erreur lors de la récupération du profil Neon:", err);
     }
   };
 
@@ -53,10 +51,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(currentUser);
 
       if (currentUser) {
-        await fetchRole(currentUser.uid);
-        //console.log(currentUser);
+        // Firebase donne l'UID, on va chercher le reste dans Neon
+        await fetchRoleFromNeon(currentUser.uid);
       } else {
         setRole(null);
+        setCurrentFiliere(null);
       }
 
       setLoading(false);

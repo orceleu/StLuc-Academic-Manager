@@ -1,179 +1,131 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-  updateDoc,
-  setDoc,
-} from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "@/app/firebase/config";
+import { auth } from "@/app/firebase/config";
 import { useAuth } from "@/app/clientComponents/AuthContext";
-import { Router } from "lucide-react";
 import { useRouter } from "next/navigation";
-
+import { v4 as uuidv4 } from "uuid";
+import {
+  createFiliere,
+  deleteUser,
+  getFilieres,
+  getResponsables,
+  saveResponsable,
+  updateResponsableData,
+} from "@/app/neon/request";
+// Import des actions Neon
 export type Responsable = {
   uid: string;
+
   name: string;
+
   email: string;
+
   password: string;
+
   phone: string;
+
   filiere: string;
+
   role: string;
 };
 
 export type Filiere = {
   id?: string;
+
   nom: string;
+
   type: string;
 };
-
 export default function FilierePage() {
-  const [responsables, setResponsables] = useState<Responsable[]>([]);
-  const [filieres, setFilieres] = useState<Filiere[]>([]);
-
+  const [responsables, setResponsables] = useState<any[]>([]);
+  const [filieres, setFilieres] = useState<any[]>([]);
   const [deleteData, setDeleteData] = useState<any>(null);
   const [editData, setEditData] = useState<any>(null);
 
-  const [filiere, setFiliere] = useState("");
-
+  // Form states
+  const [selectedFiliereId, setSelectedFiliereId] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-
   const [password, setPassword] = useState("");
+  const [filiereNom, setFiliereNom] = useState("");
+
   const router = useRouter();
   const { role } = useAuth();
 
-  const [filiereNom, setFiliereNom] = useState("");
-  const [filiereType, setFiliereType] = useState("technique");
-
-  const usersRef = collection(db, "users");
-  const filiereRef = collection(db, "filieres");
-
-  /* ======================== */
-  async function fetchFilieres() {
-    const snapshot = await getDocs(filiereRef);
-
-    const list: any = [];
-
-    snapshot.forEach((docu) => {
-      list.push({
-        id: docu.id,
-        ...docu.data(),
-      });
-    });
-
-    setFilieres(list);
-  }
-
-  /* ======================== */
-  async function fetchResponsables() {
-    const snapshot = await getDocs(usersRef);
-
-    const list: any = [];
-
-    snapshot.forEach((docu) => {
-      const data = docu.data();
-
-      if (data.role === "responsable") {
-        list.push({
-          uid: docu.id,
-          ...data,
-        });
-      }
-    });
-
-    setResponsables(list);
-  }
-
   useEffect(() => {
-    fetchResponsables();
-    fetchFilieres();
+    refreshData();
   }, []);
 
-  /* ======================== */
-  async function addFiliere() {
+  async function refreshData() {
+    const f = await getFilieres();
+    const r = await getResponsables();
+    setFilieres(f);
+    setResponsables(r);
+  }
+
+  async function handleAddFiliere() {
     if (!filiereNom) return;
-
-    await addDoc(filiereRef, {
-      nom: filiereNom,
-      type: filiereType,
-    });
-
+    await createFiliere(filiereNom);
     setFiliereNom("");
-    setFiliereType("technique");
-
-    fetchFilieres();
+    refreshData();
   }
 
-  /* ======================== */
-  async function addResponsable() {
-    if (!filiere) {
-      alert("Choisissez une filière");
-      return;
+  async function handleAddResponsable() {
+    if (!selectedFiliereId) return alert("Choisissez une filière");
+
+    try {
+      // 1. Création Auth Firebase
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      // 2. Sauvegarde Neon via Server Action
+      await saveResponsable({
+        uid: cred.user.uid,
+        name,
+        email,
+        phone,
+        password,
+        filiereId: selectedFiliereId,
+      });
+
+      // Reset
+      setSelectedFiliereId("");
+      setName("");
+      setEmail("");
+      setPhone("");
+      setPassword("");
+      refreshData();
+    } catch (err: any) {
+      alert(err.message);
     }
-
-    const exist = responsables.find((r) => r.filiere === filiere);
-
-    if (exist) {
-      alert("Cette filière possède déjà un responsable");
-      return;
-    }
-
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-
-    const uid = cred.user.uid;
-
-    await setDoc(doc(db, "users", uid), {
-      uid,
-      name,
-      email,
-      phone,
-      password,
-      filiere,
-      role: "responsable", // ✅ FIX
-    });
-
-    setFiliere("");
-    setName("");
-    setEmail("");
-    setPhone("");
-
-    setPassword("");
-
-    fetchResponsables();
   }
 
-  /* ======================== */
-  async function updateResponsable() {
-    await updateDoc(doc(db, "users", editData.uid), {
-      name: editData.name,
-      filiere: editData.filiere,
-      phone: editData.phone,
-    });
+  async function handleUpdate() {
+    if (!editData) return;
+
+    // L'erreur dit qu'il faut 3 arguments : (uid, name, phone)
+    await updateResponsableData(
+      editData.id, // 1er argument : uid
+      editData.name, // 2ème argument : name
+      editData.phone, // 3ème argument : phone
+    );
 
     setEditData(null);
-
-    fetchResponsables();
+    refreshData();
   }
 
-  /* ======================== */
-  async function deleteResponsable(uid: string) {
-    await deleteDoc(doc(db, "users", uid));
+  // Fonction de suppression
+  async function handleDelete() {
+    if (!deleteData) return;
 
-    fetchResponsables();
+    await deleteUser(deleteData.id); // Utilise l'ID stocké dans deleteData
+
+    setDeleteData(null); // Ferme la modale
+    refreshData(); // Recharge la liste
   }
-
   if (role !== "admin") {
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 2000);
-
+    // Garde ton code de redirection existant...
     return (
       <p className="text-center font-bold text-red-600 p-25">Non autorisé</p>
     );
@@ -181,62 +133,49 @@ export default function FilierePage() {
 
   return (
     <div className="max-w-6xl mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-8">Gestion des Filières</h1>
-      {/* AJOUT FILIERE */}
+      <h1 className="text-3xl font-bold mb-8">
+        Gestion des Filières (Neon DB)
+      </h1>
+      {/* BLOC AJOUT FILIERE */}
       <div className="bg-gray-100 p-6 rounded-lg mb-10">
         <h2 className="text-xl font-semibold mb-4">Ajouter Filière</h2>
-
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="flex gap-4">
           <input
             placeholder="Nom de la filière"
             value={filiereNom}
             onChange={(e) => setFiliereNom(e.target.value)}
-            className="border p-2 rounded"
+            className="border p-2 rounded flex-1"
           />
-
-          <select
-            value={filiereType}
-            onChange={(e) => setFiliereType(e.target.value)}
-            className="border p-2 rounded"
+          <button
+            onClick={handleAddFiliere}
+            className="bg-green-600 text-white px-6 py-2 rounded"
           >
-            <option value="technique">Technique</option>
-            <option value="universite">Université</option>
-          </select>
+            Ajouter
+          </button>
         </div>
-
-        <button
-          onClick={addFiliere}
-          className="mt-4 bg-green-600 text-white px-6 py-2 rounded"
-        >
-          Ajouter Filière
-        </button>
       </div>
-      {/* AJOUT RESPONSABLE */}
+      {/* BLOC AJOUT RESPONSABLE */}
       <div className="bg-gray-100 p-6 rounded-lg mb-10">
         <h2 className="text-xl font-semibold mb-4">Ajouter Responsable</h2>
-
         <div className="grid md:grid-cols-2 gap-4">
           <select
-            value={filiere}
-            onChange={(e) => setFiliere(e.target.value)}
+            value={selectedFiliereId}
+            onChange={(e) => setSelectedFiliereId(e.target.value)}
             className="border p-2 rounded"
           >
             <option value="">Choisir une filière</option>
-
             {filieres.map((f) => (
-              <option key={f.id} value={f.nom}>
-                {f.nom} ({f.type})
+              <option key={f.id} value={f.id}>
+                {f.name}
               </option>
             ))}
           </select>
-
           <input
             placeholder="Nom prénom"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="border p-2 rounded"
           />
-
           <input
             placeholder="Email"
             value={email}
@@ -246,94 +185,61 @@ export default function FilierePage() {
           <input
             placeholder="Phone"
             value={phone}
-            type="number"
-            maxLength={8}
             onChange={(e) => setPhone(e.target.value)}
             className="border p-2 rounded"
           />
-
           <input
             placeholder="Password"
             value={password}
+            type="password"
             onChange={(e) => setPassword(e.target.value)}
             className="border p-2 rounded"
           />
         </div>
-
         <button
-          onClick={addResponsable}
+          onClick={handleAddResponsable}
           className="mt-4 bg-blue-600 text-white px-6 py-2 rounded"
         >
           Ajouter Responsable
         </button>
       </div>
-      {/* TABLE */}
-      <p className="mb-3">
-        <span className="font-bold text-gray-500">Nombre :</span>
-        <span className="text-green-500 ml-2">{responsables.length}</span>
-      </p>
+      {/* TABLEAU (Apparence conservée) */}
       <div className="overflow-x-auto">
         <table className="w-full border border-gray-200 rounded-lg overflow-hidden">
-          {/* HEADER */}
           <thead className="bg-gray-100 text-gray-700 text-sm uppercase">
             <tr>
-              <th className="px-4 py-3 text-center">Filière</th>
+              <th className="px-4 py-3">Filière</th>
               <th className="px-4 py-3 text-left">Nom</th>
               <th className="px-4 py-3 text-left">Email</th>
-              <th className="px-4 py-3 text-left">TelePhone</th>
-              <th className="px-4 py-3 text-center">Password</th>
-              <th className="px-4 py-3 text-center">Role</th>
+              <th className="px-4 py-3 text-left">Téléphone</th>
+              <th className="px-4 py-3 text-left">Mot de passe</th>
               <th className="px-4 py-3 text-center">Actions</th>
             </tr>
           </thead>
-
-          {/* BODY */}
           <tbody className="text-gray-700 text-sm">
             {responsables.map((r, index) => (
               <tr
-                key={r.uid}
-                className={`border-t hover:bg-gray-50 transition ${
-                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                }`}
+                key={r.id}
+                className={`border-t ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
               >
-                {/* FILIERE */}
                 <td className="px-4 py-3 text-center font-medium">
-                  {r.filiere}
+                  {r.filiere_name}
                 </td>
-
-                {/* NOM */}
                 <td className="px-4 py-3">{r.name}</td>
-
-                {/* EMAIL */}
                 <td className="px-4 py-3">{r.email}</td>
-                {/* Phone */}
                 <td className="px-4 py-3">{r.phone}</td>
-
-                {/* PASSWORD */}
+                <td className="px-4 py-3">{r.password}</td>
                 <td className="px-4 py-3 text-center">
-                  <span className="text-gray-400">{r.password}</span>
-                </td>
-
-                {/* ROLE */}
-                <td className="px-4 py-3 text-center">
-                  <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold">
-                    {r.role}
-                  </span>
-                </td>
-
-                {/* ACTIONS */}
-                <td className="px-4 py-3">
                   <div className="flex justify-center gap-3">
                     <button
                       onClick={() => setEditData(r)}
-                      className="text-blue-600 hover:underline text-sm"
+                      className="text-blue-600"
                     >
                       Modifier
                     </button>
-
                     <button
                       onClick={() => setDeleteData(r)}
-                      className="text-red-600 hover:underline text-sm"
+                      className="text-red-600"
                     >
                       Supprimer
                     </button>
@@ -344,97 +250,105 @@ export default function FilierePage() {
           </tbody>
         </table>
       </div>
-      {/* MODAL EDIT */}{" "}
       {editData && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          {" "}
-          <div className="bg-white p-6 rounded-lg w-96">
-            {" "}
-            <h2 className="text-xl font-semibold mb-4">Modifier</h2>{" "}
-            <div className="space-y-3">
-              {" "}
-              <input
-                value={editData.name}
-                onChange={(e) =>
-                  setEditData({ ...editData, name: e.target.value })
-                }
-                className="border p-2 w-full"
-              />{" "}
-              <input
-                type="number"
-                value={editData.phone}
-                onChange={(e) =>
-                  setEditData({ ...editData, phone: e.target.value })
-                }
-                className="border p-2 w-full"
-              />{" "}
-              <select
-                value={editData.filiere}
-                onChange={(e) =>
-                  setEditData({ ...editData, filiere: e.target.value })
-                }
-                className="border p-2 w-full"
-              >
-                {" "}
-                {filieres.map((f) => (
-                  <option key={f.id} value={f.nom}>
-                    {" "}
-                    {f.nom}{" "}
-                  </option>
-                ))}{" "}
-              </select>{" "}
-            </div>{" "}
-            <div className="flex gap-3 mt-4">
-              {" "}
-              <button
-                onClick={updateResponsable}
-                className="bg-green-600 text-white px-4 py-2 rounded"
-              >
-                {" "}
-                Sauvegarder{" "}
-              </button>{" "}
-              <button
-                onClick={() => setEditData(null)}
-                className="bg-gray-400 text-white px-4 py-2 rounded"
-              >
-                {" "}
-                Annuler{" "}
-              </button>{" "}
-            </div>{" "}
-          </div>{" "}
-        </div>
-      )}
-      {/* DELETE */}
-      {deleteData && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h2 className="text-xl font-semibold mb-3">
-              Confirmer la suppression
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">
+              Modifier le Responsable
             </h2>
 
-            <p className="mb-4">Supprimer {deleteData.name} ?</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nom complet
+                </label>
+                <input
+                  className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={editData.name}
+                  onChange={(e) =>
+                    setEditData({ ...editData, name: e.target.value })
+                  }
+                />
+              </div>
 
-            <div className="flex gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Téléphone
+                </label>
+                <input
+                  className="w-full border border-gray-300 p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  type="tel"
+                  value={editData.phone}
+                  onChange={(e) =>
+                    setEditData({ ...editData, phone: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
               <button
-                onClick={async () => {
-                  await deleteResponsable(deleteData.uid);
-                  setDeleteData(null);
-                }}
-                className="bg-red-600 text-white px-4 py-2 rounded"
+                onClick={() => setEditData(null)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
               >
-                Supprimer
+                Annuler
               </button>
+              <button
+                onClick={handleUpdate}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              >
+                Enregistrer les modifications
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deleteData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-8 w-8"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
 
+            <h2 className="text-xl font-bold text-gray-800 mb-2">
+              Supprimer ?
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Êtes-vous sûr de vouloir supprimer{" "}
+              <strong>{deleteData.name}</strong> ? Cette action est
+              irréversible.
+            </p>
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleDelete}
+                className="w-full py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition"
+              >
+                Oui, supprimer
+              </button>
               <button
                 onClick={() => setDeleteData(null)}
-                className="bg-gray-400 text-white px-4 py-2 rounded"
+                className="w-full py-2.5 text-gray-500 hover:bg-gray-50 rounded-lg transition"
               >
                 Annuler
               </button>
             </div>
           </div>
         </div>
-      )}
+      )}{" "}
     </div>
   );
 }

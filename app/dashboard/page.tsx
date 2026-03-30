@@ -10,6 +10,8 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { Teacher } from "./teacher/page";
 import TeacherReadOnlyView from "../clientComponents/TeacherInfo";
+import SetupPage from "../clientComponents/YearAndSession";
+import SetupPage2 from "../clientComponents/GetYearsAndSession";
 
 export default function AdminOverview() {
   const router = useRouter();
@@ -17,7 +19,7 @@ export default function AdminOverview() {
   const [teacher, setTeacher] = useState<Teacher[]>([]);
 
   const { user, role, loading, currentFiliere } = useAuth();
-  console.log(role);
+  console.log(`role: ${role}`);
   const usersRef = collection(db, "users");
 
   async function fetchResponsables() {
@@ -76,6 +78,7 @@ export default function AdminOverview() {
         <h1 className="text-3xl font-bold mb-10 mt-25">
           Dashboard <span className="text-gray-600 font-bold">({role})</span>
         </h1>
+        <SetupPage2 />
 
         <div className="grid md:grid-cols-3 gap-6">
           {/* FILIERE */}
