@@ -554,7 +554,7 @@ export async function getTeachers2(userFiliere?: string) {
   }
 }
 */
-export async function assignTeacher(data: {
+/*export async function assignTeacher(data: {
   offering_id: string;
   teacher_id: string;
   day_of_week: string;
@@ -618,7 +618,119 @@ export async function assignTeacher(data: {
     console.error("Erreur assignation:", error);
     return { success: false, error: "Une erreur technique est survenue." };
   }
+}*/
+export async function assignTeacher(data: {
+  offering_id: string;
+  teacher_id: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  room: string;
+}) {
+  const assignmentId = crypto.randomUUID();
+  const scheduleId = crypto.randomUUID();
+
+  try {
+    // --- ÉTAPE 1 : VÉRIFIER SI UN PROF EST DÉJÀ ASSIGNÉ À CE COURS ---
+    const existingAssignment = await sql`
+      SELECT id 
+      FROM course_assignments 
+      WHERE course_offering_id = ${data.offering_id}
+      LIMIT 1
+    `;
+
+    if (existingAssignment.length > 0) {
+      return {
+        success: false,
+        error: "Ce cours a déjà un professeur assigné.",
+      };
+    }
+
+    // --- ÉTAPE 2 : VÉRIFICATION DES CONFLITS (prof / salle / horaire) ---
+    const conflicts = await sql`
+      SELECT s.room, u.name as teacher_name, c.name as course_name
+      FROM course_schedules s
+      JOIN course_assignments a ON s.course_assignment_id = a.id
+      JOIN users u ON a.teacher_id = u.id
+      JOIN course_offerings co ON a.course_offering_id = co.id
+      JOIN courses c ON co.course_id = c.id
+      WHERE s.day_of_week = ${data.day_of_week.toLowerCase()}
+      AND (
+        (a.teacher_id = ${data.teacher_id}) OR (s.room = ${data.room})
+      )
+      AND (
+        (s.start_time, s.end_time) OVERLAPS (${data.start_time}::TIME, ${data.end_time}::TIME)
+      )
+    `;
+
+    if (conflicts.length > 0) {
+      const conflict = conflicts[0];
+      const reason =
+        conflict.room === data.room
+          ? `la salle ${data.room}`
+          : `le professeur ${conflict.teacher_name}`;
+
+      return {
+        success: false,
+        error: `Conflit détecté : ${reason} est déjà occupé pour le cours "${conflict.course_name}" sur ce créneau.`,
+      };
+    }
+
+    // --- ÉTAPE 3 : TRANSACTION ---
+    await sql`BEGIN`;
+
+    // insertion assignment
+    await sql`
+      INSERT INTO course_assignments (id, course_offering_id, teacher_id)
+      VALUES (${assignmentId}, ${data.offering_id}, ${data.teacher_id})
+    `;
+
+    // insertion schedule
+    await sql`
+      INSERT INTO course_schedules (
+        id, 
+        course_assignment_id, 
+        day_of_week, 
+        start_time, 
+        end_time, 
+        room
+      )
+      VALUES (
+        ${scheduleId}, 
+        ${assignmentId}, 
+        ${data.day_of_week.toLowerCase()}, 
+        ${data.start_time}, 
+        ${data.end_time}, 
+        ${data.room}
+      )
+    `;
+
+    await sql`COMMIT`;
+
+    // refresh UI
+    revalidatePath("/dashboard/cours");
+
+    return { success: true };
+  } catch (error: any) {
+    await sql`ROLLBACK`;
+
+    // --- GESTION ERREUR UNIQUE (sécurité DB) ---
+    if (error.code === "23505") {
+      return {
+        success: false,
+        error: "Ce cours a déjà un professeur assigné.",
+      };
+    }
+
+    console.error("Erreur assignation:", error);
+
+    return {
+      success: false,
+      error: "Une erreur technique est survenue.",
+    };
+  }
 }
+
 export async function getFullSchedules() {
   try {
     const schedules = await sql`

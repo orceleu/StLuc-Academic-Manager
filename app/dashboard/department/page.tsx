@@ -207,7 +207,7 @@ export default function FilierePage() {
           <thead className="bg-gray-100 text-gray-700 text-sm uppercase">
             <tr>
               <th className="px-4 py-3">Filière</th>
-              <th className="px-4 py-3 text-left">Nom</th>
+              <th className="px-4 py-3 text-left">Responsable</th>
               <th className="px-4 py-3 text-left">Email</th>
               <th className="px-4 py-3 text-left">Téléphone</th>
               <th className="px-4 py-3 text-left">Mot de passe</th>

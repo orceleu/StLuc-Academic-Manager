@@ -78,7 +78,7 @@ export default function SetupPage2() {
             Configuration temps réel de l'établissement.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={() => setShowYearModal(true)}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
