@@ -26,7 +26,6 @@ interface ResponsableInput {
 
 export async function createUser(data: UserInput) {
   try {
-    // On utilise directement data.id reçu du frontend
     await sql`
       INSERT INTO users (id, name, email, phone, password, role)
       VALUES (
@@ -356,6 +355,43 @@ export async function getTotalStudentsCount() {
     return 0;
   }
 }
+export async function getTotalResponsablesCount() {
+  try {
+    // La requête renvoie un tableau d'objets, ex: [{ count: "42" }]
+    const result = await sql`SELECT COUNT(*) as count FROM responsables`;
+
+    // On convertit le résultat en nombre (Neon renvoie souvent le count en string)
+    return parseInt(result[0].count, 10);
+  } catch (error) {
+    console.error("Erreur lors du comptage des responsables:", error);
+    return 0;
+  }
+}
+export async function getTotalCourses() {
+  try {
+    // La requête renvoie un tableau d'objets, ex: [{ count: "42" }]
+    const result = await sql`SELECT COUNT(*) as count FROM courses`;
+
+    // On convertit le résultat en nombre (Neon renvoie souvent le count en string)
+    return parseInt(result[0].count, 10);
+  } catch (error) {
+    console.error("Erreur lors du comptage des responsables:", error);
+    return 0;
+  }
+}
+export async function getTotalTeachers() {
+  try {
+    // La requête renvoie un tableau d'objets, ex: [{ count: "42" }]
+    const result =
+      await sql`SELECT COUNT(*) as count FROM users WHERE role = 'teacher'`;
+
+    // On convertit le résultat en nombre (Neon renvoie souvent le count en string)
+    return parseInt(result[0].count, 10);
+  } catch (error) {
+    console.error("Erreur lors du comptage des responsables:", error);
+    return 0;
+  }
+}
 export async function getDetailedStudents() {
   try {
     return await sql`
@@ -403,14 +439,14 @@ export async function addCourseOffering(data: {
 }
 
 // 3. Assigner un professeur
-export async function assignTeacher(offering_id: string, teacher_id: string) {
+/*export async function assignTeacher(offering_id: string, teacher_id: string) {
   const id = crypto.randomUUID();
   await sql`
     INSERT INTO course_assignments (id, course_offering_id, teacher_id)
     VALUES (${id}, ${offering_id}, ${teacher_id})
   `;
   revalidatePath("/admin/courses");
-}
+}*/
 export async function getCourses() {
   try {
     const courses = await sql`
@@ -454,4 +490,307 @@ export async function getTeachers2(userFiliere?: string) {
   // Le '?' rend l'argument optionnel
 
   return await sql`SELECT * FROM users WHERE role = 'teacher'`;
+}
+/*export async function assignTeacher(data: {
+  offering_id: string;
+  teacher_id: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  room: string;
+}) {
+  // Génération des IDs uniques
+  const assignmentId = crypto.randomUUID();
+  const scheduleId = crypto.randomUUID();
+
+  try {
+    // Début de la transaction
+    await sql`BEGIN`;
+
+    // 1. Insertion dans course_assignments
+    await sql`
+      INSERT INTO course_assignments (id, course_offering_id, teacher_id)
+      VALUES (${assignmentId}, ${data.offering_id}, ${data.teacher_id})
+    `;
+
+    // 2. Insertion dans course_schedules (liée à l'assignment par assignmentId)
+    await sql`
+      INSERT INTO course_schedules (
+        id, 
+        course_assignment_id, 
+        day_of_week, 
+        start_time, 
+        end_time, 
+        room
+      )
+      VALUES (
+        ${scheduleId}, 
+        ${assignmentId}, 
+        ${data.day_of_week.toLowerCase()}, 
+        ${data.start_time}, 
+        ${data.end_time}, 
+        ${data.room}
+      )
+    `;
+
+    // Validation de la transaction
+    await sql`COMMIT`;
+
+    // Rafraîchir les données de la page
+    revalidatePath("/dashboard/cours");
+
+    return { success: true };
+  } catch (error: any) {
+    // En cas d'erreur (ex: conflit d'horaire, erreur réseau), on annule tout
+    await sql`ROLLBACK`;
+
+    console.error("Erreur lors de l'assignation:", error);
+
+    return {
+      success: false,
+      error:
+        "L'opération a échoué. Vérifiez que les données sont correctes (ex: l'heure de fin doit être après l'heure de début).",
+    };
+  }
+}
+*/
+export async function assignTeacher(data: {
+  offering_id: string;
+  teacher_id: string;
+  day_of_week: string;
+  start_time: string;
+  end_time: string;
+  room: string;
+}) {
+  const assignmentId = crypto.randomUUID();
+  const scheduleId = crypto.randomUUID();
+
+  try {
+    // --- ÉTAPE 1 : VÉRIFICATION DES CONFLITS ---
+
+    // On vérifie si le PROF ou la SALLE est déjà pris sur ce créneau
+    const conflicts = await sql`
+      SELECT s.room, u.name as teacher_name, c.name as course_name
+      FROM course_schedules s
+      JOIN course_assignments a ON s.course_assignment_id = a.id
+      JOIN users u ON a.teacher_id = u.id
+      JOIN course_offerings co ON a.course_offering_id = co.id
+      JOIN courses c ON co.course_id = c.id
+      WHERE s.day_of_week = ${data.day_of_week.toLowerCase()}
+      AND (
+        (a.teacher_id = ${data.teacher_id}) OR (s.room = ${data.room})
+      )
+      AND (
+        (s.start_time, s.end_time) OVERLAPS (${data.start_time}::TIME, ${data.end_time}::TIME)
+      )
+    `;
+
+    if (conflicts.length > 0) {
+      const conflict = conflicts[0];
+      const reason =
+        conflict.room === data.room
+          ? `la salle ${data.room}`
+          : `le professeur ${conflict.teacher_name}`;
+      return {
+        success: false,
+        error: `Conflit détecté : ${reason} est déjà occupé pour le cours "${conflict.course_name}" sur ce créneau.`,
+      };
+    }
+
+    // --- ÉTAPE 2 : TRANSACTION ---
+    await sql`BEGIN`;
+
+    await sql`
+      INSERT INTO course_assignments (id, course_offering_id, teacher_id)
+      VALUES (${assignmentId}, ${data.offering_id}, ${data.teacher_id})
+    `;
+
+    await sql`
+      INSERT INTO course_schedules (id, course_assignment_id, day_of_week, start_time, end_time, room)
+      VALUES (${scheduleId}, ${assignmentId}, ${data.day_of_week.toLowerCase()}, ${data.start_time}, ${data.end_time}, ${data.room})
+    `;
+
+    await sql`COMMIT`;
+    revalidatePath("/dashboard/cours");
+    return { success: true };
+  } catch (error: any) {
+    await sql`ROLLBACK`;
+    console.error("Erreur assignation:", error);
+    return { success: false, error: "Une erreur technique est survenue." };
+  }
+}
+export async function getFullSchedules() {
+  try {
+    const schedules = await sql`
+      SELECT 
+        s.id,
+        s.day_of_week,
+        s.start_time,
+        s.end_time,
+        s.room,
+        u.name as teacher_name,
+        c.name as course_name,
+        f.name as filiere_name,
+        sess.name as session_name
+      FROM course_schedules s
+      JOIN course_assignments a ON s.course_assignment_id = a.id
+      JOIN users u ON a.teacher_id = u.id
+      JOIN course_offerings co ON a.course_offering_id = co.id
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      JOIN sessions sess ON co.session_id = sess.id
+      ORDER BY 
+        CASE s.day_of_week
+          WHEN 'lundi' THEN 1
+          WHEN 'mardi' THEN 2
+          WHEN 'mercredi' THEN 3
+          WHEN 'jeudi' THEN 4
+          WHEN 'vendredi' THEN 5
+        END,
+        s.start_time ASC
+    `;
+    return schedules;
+  } catch (error) {
+    console.error("Erreur fetch schedules:", error);
+    return [];
+  }
+}
+export async function getAssignmentsWithSchedules() {
+  try {
+    return await sql`
+      SELECT 
+        a.id as assignment_id,
+        u.name as teacher_name,
+        c.name as course_name,
+        f.name as filiere_name,
+        ay.name as year_name,
+        s.name as session_name,
+        sch.day_of_week,
+        sch.start_time,
+        sch.end_time,
+        sch.room
+      FROM course_assignments a
+      JOIN users u ON a.teacher_id = u.id
+      JOIN course_offerings co ON a.course_offering_id = co.id
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      JOIN academic_years ay ON co.academic_year_id = ay.id
+      JOIN sessions s ON co.session_id = s.id
+      LEFT JOIN course_schedules sch ON sch.course_assignment_id = a.id
+      ORDER BY ay.name DESC, f.name ASC, sch.day_of_week ASC
+    `;
+  } catch (error) {
+    console.error("Erreur SQL assignments:", error);
+    return [];
+  }
+}
+export async function deleteAssignment(id: string) {
+  await sql`DELETE FROM course_assignments WHERE id = ${id}`;
+  revalidatePath("/dashboard/cours");
+}
+export async function getDetailedOfferings() {
+  try {
+    return await sql`
+      SELECT 
+        co.id as offering_id,
+        c.name as course_name,
+        f.name as filiere_name,
+        ay.name as year_name,
+        s.name as session_name,
+        co.coefficient
+      FROM course_offerings co
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      JOIN academic_years ay ON co.academic_year_id = ay.id
+      JOIN sessions s ON co.session_id = s.id
+      ORDER BY ay.name DESC, f.name ASC, s.name ASC
+    `;
+  } catch (error) {
+    console.error("Erreur fetch offerings:", error);
+    return [];
+  }
+}
+
+export async function deleteOffering(id: string) {
+  try {
+    // Note : Cela échouera si des assignations de profs existent déjà (Contrainte SQL)
+    await sql`DELETE FROM course_offerings WHERE id = ${id}`;
+    revalidatePath("/dashboard/cours");
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        "Impossible de supprimer : ce cours est déjà assigné à un professeur.",
+    };
+  }
+}
+
+export async function getPalmaresData() {
+  try {
+    // 1. Récupérer tous les étudiants inscrits avec leur filière
+    const students = await sql`
+      SELECT e.id as enrollment_id, u.name as student_name, f.name as filiere_name, ay.name as year_name
+      FROM enrollments e
+      JOIN students u ON e.student_id = u.id
+      JOIN filieres f ON e.filiere_id = f.id
+      JOIN academic_years ay ON e.academic_year_id = ay.id
+    `;
+
+    // 2. Récupérer tous les cours (offres) pour créer les colonnes
+    const courses = await sql`
+      SELECT co.id as offering_id, c.name as course_name, co.coefficient, f.name as filiere_name
+      FROM course_offerings co
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+    `;
+
+    // 3. Récupérer toutes les notes existantes
+    const grades =
+      await sql`SELECT id, enrollment_id, course_offering_id, score FROM grades`;
+
+    return { students, courses, grades };
+  } catch (error) {
+    console.error(error);
+    return { students: [], courses: [], grades: [] };
+  }
+}
+
+export async function saveGrade(
+  enrollmentId: string,
+  offeringId: string,
+  score: number,
+) {
+  // On utilise ON CONFLICT pour soit insérer, soit mettre à jour la note
+  // Note: Nécessite une contrainte UNIQUE(enrollment_id, course_offering_id) sur ta table grades
+  await sql`
+    INSERT INTO grades (id, enrollment_id, course_offering_id, score)
+    VALUES (${crypto.randomUUID()}, ${enrollmentId}, ${offeringId}, ${score})
+    ON CONFLICT (enrollment_id, course_offering_id) 
+    DO UPDATE SET score = EXCLUDED.score
+  `;
+  revalidatePath("/dashboard/notes");
+}
+export async function saveBulkGrades(
+  gradesToSave: {
+    enrollment_id: string;
+    course_offering_id: string;
+    score: number;
+  }[],
+) {
+  try {
+    for (const item of gradesToSave) {
+      await sql`
+        INSERT INTO grades (id, enrollment_id, course_offering_id, score)
+        VALUES (${crypto.randomUUID()}, ${item.enrollment_id}, ${item.course_offering_id}, ${item.score})
+        ON CONFLICT (enrollment_id, course_offering_id) 
+        DO UPDATE SET score = EXCLUDED.score
+      `;
+    }
+    revalidatePath("/test");
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return { success: false };
+  }
 }

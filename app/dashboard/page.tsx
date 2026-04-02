@@ -21,7 +21,10 @@ import {
   getAcademicYears,
   getFilieres,
   getSessions,
+  getTotalCourses,
+  getTotalResponsablesCount,
   getTotalStudentsCount,
+  getTotalTeachers,
 } from "../neon/request";
 
 interface AcademicData {
@@ -34,7 +37,12 @@ export default function AdminOverview() {
   const router = useRouter();
   const { user, role, loading, currentFiliere } = useAuth();
 
-  const [responsables, setResponsables] = useState<Responsable[]>([]);
+  const [totalsresponsables, setTotaleResponsables] = useState<number | null>(
+    null,
+  );
+
+  const [totalsTeachers, setTotaleTeacher] = useState<number | null>(null);
+  const [totalsCourses, setTotaleCourses] = useState<number | null>(null);
   const [teacher, setTeacher] = useState<Teacher[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [count, setCount] = useState<number | null>(null);
@@ -46,20 +54,6 @@ export default function AdminOverview() {
   });
 
   const usersRef = collection(db, "users");
-
-  async function fetchResponsables() {
-    const snapshot = await getDocs(usersRef);
-    const list: any = [];
-
-    snapshot.forEach((docu) => {
-      const data = docu.data();
-      if (data.role === "responsable") {
-        list.push({ id: docu.id, ...data });
-      }
-    });
-
-    setResponsables(list);
-  }
 
   async function fetchTeacher() {
     const snapshot = await getDocs(usersRef);
@@ -78,6 +72,12 @@ export default function AdminOverview() {
   const fetchCount = async () => {
     const total = await getTotalStudentsCount();
     setCount(total);
+    const totale1 = await getTotalResponsablesCount();
+    setTotaleResponsables(totale1);
+    const totale2 = await getTotalCourses();
+    setTotaleCourses(totale2);
+    const totale3 = await getTotalTeachers();
+    setTotaleTeacher(totale3);
   };
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function AdminOverview() {
 
   useEffect(() => {
     fetchTeacher();
-    fetchResponsables();
+    //fetchResponsables();
   }, []);
 
   if (loading)
@@ -164,7 +164,7 @@ export default function AdminOverview() {
               <p className="text-sm">
                 Responsables :{" "}
                 <span className="font-bold text-green-600">
-                  {responsables.length}
+                  {totalsresponsables}
                 </span>
               </p>
             </div>
@@ -190,13 +190,7 @@ export default function AdminOverview() {
               <p className="text-sm">
                 Total :{" "}
                 <span className="font-bold text-green-600">
-                  {
-                    teacher.filter(
-                      (t) =>
-                        currentFiliere === "directeur" ||
-                        t.filiere === currentFiliere,
-                    ).length
-                  }
+                  {totalsTeachers}
                 </span>
               </p>
             </div>
@@ -214,7 +208,10 @@ export default function AdminOverview() {
 
             <h2 className="text-lg font-semibold mb-1">Étudiants</h2>
 
-            <p className="text-sm text-gray-500">Notes & gestion</p>
+            <p className="text-sm text-gray-500 mb-3">Notes & gestion</p>
+            <p className="text-sm">
+              Total : <span className="font-bold text-green-600">{count}</span>
+            </p>
           </div>
 
           {/* COURS */}
@@ -229,7 +226,11 @@ export default function AdminOverview() {
 
             <h2 className="text-lg font-semibold mb-1">Cours</h2>
 
-            <p className="text-sm text-gray-500">Gérer les cours</p>
+            <p className="text-sm text-gray-500 mb-3">Gérer les cours</p>
+            <p className="text-sm">
+              Total :{" "}
+              <span className="font-bold text-green-600">{totalsCourses}</span>
+            </p>
           </div>
         </div>
       </div>
