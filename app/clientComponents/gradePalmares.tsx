@@ -9,7 +9,11 @@ import {
   BookOpen,
   GraduationCap,
 } from "lucide-react";
-import { getPalmaresData, saveBulkGrades } from "@/app/neon/request";
+import {
+  getPalmaresData,
+  saveBulkGrades,
+  updateGrade,
+} from "@/app/neon/request";
 
 export default function GradesPage() {
   const [rawData, setRawData] = useState<any>({
@@ -20,12 +24,25 @@ export default function GradesPage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [filterFiliere, setFilterFiliere] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [pendingChanges, setPendingChanges] = useState<
     Record<string, number | string>
   >({});
+  // 1. Modifier l'état initial
+  const [filterFiliere, setFilterFiliere] = useState<string>("");
 
+  // 2. Mettre à jour la filière par défaut quand rawData change
+  useEffect(() => {
+    if (rawData.courses.length > 0 && filterFiliere === "") {
+      // Récupère la liste unique des noms de filières
+      const uniqueFilieres = Array.from(
+        new Set(rawData.courses.map((c: any) => c.filiere_name)),
+      );
+      if (uniqueFilieres.length > 0) {
+        setFilterFiliere(uniqueFilieres[0] as string); // Sélectionne la première
+      }
+    }
+  }, [rawData, filterFiliere]);
   useEffect(() => {
     loadData();
   }, []);
@@ -56,7 +73,18 @@ export default function GradesPage() {
       return acc + (score !== "" ? parseFloat(score as string) : 0);
     }, 0);
   };
+  const formatLastUpdate = (enrollId: string, offId: string) => {
+    // On cherche la note correspondante
+    const grade = rawData.grades.find(
+      (g: any) =>
+        g.enrollment_id === enrollId && g.course_offering_id === offId,
+    );
 
+    if (!grade || !grade.updated_at) return null;
+
+    const date = new Date(grade.updated_at);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
   // Somme de tous les coefficients
   const calculateSumCoeff = (visibleCourses: any[]) => {
     return visibleCourses.reduce(
@@ -79,36 +107,105 @@ export default function GradesPage() {
   // --- ACTIONS ---
 
   const handleInputChange = (enrollId: string, offId: string, val: string) => {
-    setPendingChanges((prev) => ({ ...prev, [`${enrollId}-${offId}`]: val }));
+    // Autoriser vide (pour effacer)
+    if (val === "") {
+      setPendingChanges((prev) => ({
+        ...prev,
+        [`${enrollId}-${offId}`]: "",
+      }));
+      return;
+    }
+
+    const num = parseFloat(val);
+
+    // Validation simple
+    if (isNaN(num) || num < 0 || num > 100) return;
+
+    setPendingChanges((prev) => ({
+      ...prev,
+      [`${enrollId}-${offId}`]: num,
+    }));
   };
 
   const handleSave = async () => {
     setIsSaving(true);
-    const updates = Object.entries(pendingChanges).map(([key, score]) => ({
-      enrollment_id: key.split("-")[0],
-      course_offering_id: key.split("-")[1],
-      score: parseFloat(score as string) || 0,
-    }));
 
+    // 1. On transforme l'objet { "ID-ID": 15 } en un tableau d'entrées [ ["ID-ID", 15], ...]
+    const updates = Object.entries(pendingChanges).map(([key, score]) => {
+      // 2. On découpe la clé pour retrouver les IDs originaux
+      const [enrollment_id, course_offering_id] = key.split("-");
+
+      // 3. On prépare l'objet final pour la base de données
+      if (score === "") {
+        return {
+          enrollment_id,
+          course_offering_id,
+          score: null, // Si l'input est vide, on envoie null pour effacer en DB
+        };
+      }
+
+      return {
+        enrollment_id,
+        course_offering_id,
+        score: Number(score), // On s'assure que c'est bien un nombre
+      };
+    });
+    console.table(updates);
+    // 4. On envoie tout d'un coup au serveur
     const res = await saveBulkGrades(updates);
+
     if (res.success) {
-      setPendingChanges({});
-      await loadData();
-      alert("Palmarès mis à jour avec succès !");
+      setPendingChanges({}); // On vide les changements locaux (car ils sont maintenant en DB)
+      await loadData(); // On rafraîchit l'affichage avec les données du serveur
     }
+
     setIsSaving(false);
   };
 
   // --- FILTRAGE ---
   const dynamicColumns = rawData.courses.filter(
-    (c: any) => filterFiliere === "" || c.filiere_name === filterFiliere,
+    (c: any) => c.filiere_name === filterFiliere,
   );
   const filteredStudents = rawData.students.filter(
     (s: any) =>
       (filterFiliere === "" || s.filiere_name === filterFiliere) &&
       s.student_name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
+  // --- FONCTION UTILITAIRE (À ajouter avant le return) ---
+  const getGradeUpdatedAt = (enrollId: string) => {
+    // 1. Filtrer les notes de l'étudiant qui ont une date valide
+    const studentGrades = rawData.grades.filter(
+      (g: any) =>
+        g.enrollment_id === enrollId && (g.updated_at || g.created_at),
+    );
 
+    if (studentGrades.length === 0) return "Aucune";
+
+    // 2. Récupérer le timestamp le plus récent (en gérant les dates invalides)
+    const timestamps = studentGrades.map((g: any) => {
+      const d = new Date(g.updated_at || g.created_at);
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    });
+
+    const lastTimestamp = Math.max(...timestamps);
+    if (lastTimestamp === 0) return "Format date invalide";
+
+    // 3. Calculer la différence de temps
+    const now = new Date().getTime();
+    const diffInSeconds = Math.floor((now - lastTimestamp) / 1000);
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    // 4. Retourner le format relatif "il y a X..."
+    if (diffInSeconds < 60) return "À l'instant";
+    if (diffInMinutes < 60) return `Il y a ${diffInMinutes} min`;
+    if (diffInHours < 24) return `Il y a ${diffInHours} h`;
+    if (diffInDays === 1) return "Hier";
+
+    // Si c'est plus vieux, on affiche la date simple
+    return new Date(lastTimestamp).toLocaleDateString();
+  };
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen font-sans">
       {/* HEADER & CONTRÔLES */}
@@ -140,11 +237,12 @@ export default function GradesPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
           <select
             className="px-4 py-2.5 bg-gray-50 border rounded-xl outline-none text-sm font-bold text-gray-600"
+            value={filterFiliere}
             onChange={(e) => setFilterFiliere(e.target.value)}
           >
-            <option value="">Toutes les filières</option>
             {Array.from(
               new Set(rawData.courses.map((c: any) => c.filiere_name)),
             ).map((f: any) => (
@@ -153,6 +251,7 @@ export default function GradesPage() {
               </option>
             ))}
           </select>
+
           <button
             onClick={handleSave}
             disabled={Object.keys(pendingChanges).length === 0 || isSaving}
@@ -199,13 +298,16 @@ export default function GradesPage() {
                 <th className="p-4 text-center bg-indigo-600 min-w-[140px] text-[10px] font-black uppercase">
                   Moyenne (%)
                 </th>
+                <th className="p-4 text-center bg-slate-800 min-w-[120px] text-[10px] font-black uppercase">
+                  Dernière Modif
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
                   <td
-                    colSpan={dynamicColumns.length + 4}
+                    colSpan={dynamicColumns.length + 5}
                     className="p-32 text-center text-gray-300 font-bold italic animate-pulse"
                   >
                     Synchronisation des données...
@@ -222,6 +324,7 @@ export default function GradesPage() {
                     student.enrollment_id,
                     dynamicColumns,
                   );
+                  const lastModif = getGradeUpdatedAt(student.enrollment_id);
 
                   return (
                     <tr
@@ -244,22 +347,50 @@ export default function GradesPage() {
                           key={course.offering_id}
                           className="p-2 text-center border-r"
                         >
-                          <input
-                            type="number"
-                            step="0.5"
-                            className="w-16 p-2 text-center bg-gray-50 border-2 border-transparent rounded-xl font-bold focus:border-indigo-400 focus:bg-white outline-none transition-all text-gray-700"
-                            value={getCurrentScore(
-                              student.enrollment_id,
-                              course.offering_id,
-                            )}
-                            onChange={(e) =>
-                              handleInputChange(
+                          <div className="flex flex-col items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.5"
+                              className={`w-16 p-2 text-center border-2 rounded-xl font-bold outline-none transition-all
+                              ${
+                                pendingChanges[
+                                  `${student.enrollment_id}-${course.offering_id}`
+                                ] !== undefined
+                                  ? "border-indigo-500 bg-indigo-50"
+                                  : "border-transparent bg-gray-50"
+                              }`}
+                              value={getCurrentScore(
                                 student.enrollment_id,
                                 course.offering_id,
-                                e.target.value,
-                              )
-                            }
-                          />
+                              )}
+                              onChange={(e) =>
+                                handleInputChange(
+                                  student.enrollment_id,
+                                  course.offering_id,
+                                  e.target.value,
+                                )
+                              }
+                            />
+                            <button
+                              type="button"
+                              className="text-[10px] text-indigo-600 font-bold hover:underline"
+                              onClick={() => {
+                                const val = getCurrentScore(
+                                  student.enrollment_id,
+                                  course.offering_id,
+                                );
+                                updateGrade(
+                                  student.enrollment_id,
+                                  course.offering_id,
+                                  Number(val),
+                                );
+                              }}
+                            >
+                              Update
+                            </button>
+                          </div>
                         </td>
                       ))}
 
@@ -272,9 +403,26 @@ export default function GradesPage() {
                       </td>
 
                       <td
-                        className={`p-4 text-center font-black text-xl bg-indigo-50/30 ${parseFloat(percent) >= 50 ? "text-emerald-600" : "text-rose-600"}`}
+                        className={`p-4 text-center font-black text-xl bg-indigo-50/30 ${
+                          parseFloat(percent) >= 50
+                            ? "text-emerald-600"
+                            : "text-rose-600"
+                        }`}
                       >
                         {percent}%
+                      </td>
+
+                      <td className="p-4 text-center bg-slate-50 font-medium text-xs text-slate-500">
+                        <div className="flex flex-col items-center">
+                          <span className="font-bold text-slate-700">
+                            {lastModif}
+                          </span>
+                          {lastModif !== "Aucune" && (
+                            <span className="text-[8px] uppercase">
+                              Aujourd'hui
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

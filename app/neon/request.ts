@@ -858,9 +858,14 @@ export async function getPalmaresData() {
     `;
 
     // 3. Récupérer toutes les notes existantes
-    const grades =
+    /* const grades =
       await sql`SELECT id, enrollment_id, course_offering_id, score FROM grades`;
-
+*/
+    // Dans getPalmaresData
+    const grades = await sql`
+  SELECT enrollment_id, course_offering_id, score, created_at 
+  FROM grades
+`;
     return { students, courses, grades };
   } catch (error) {
     console.error(error);
@@ -887,11 +892,22 @@ export async function saveBulkGrades(
   gradesToSave: {
     enrollment_id: string;
     course_offering_id: string;
-    score: number;
+    score: number | null;
   }[],
 ) {
   try {
     for (const item of gradesToSave) {
+      // 🔴 si score null → DELETE
+      if (item.score === null) {
+        await sql`
+          DELETE FROM grades
+          WHERE enrollment_id = ${item.enrollment_id}
+          AND course_offering_id = ${item.course_offering_id}
+        `;
+        continue;
+      }
+
+      // 🟢 sinon INSERT / UPDATE
       await sql`
         INSERT INTO grades (id, enrollment_id, course_offering_id, score)
         VALUES (${crypto.randomUUID()}, ${item.enrollment_id}, ${item.course_offering_id}, ${item.score})
@@ -899,6 +915,7 @@ export async function saveBulkGrades(
         DO UPDATE SET score = EXCLUDED.score
       `;
     }
+
     revalidatePath("/test");
     return { success: true };
   } catch (error) {
@@ -906,3 +923,34 @@ export async function saveBulkGrades(
     return { success: false };
   }
 }
+/**
+ * INSERT ou UPDATE (UPSERT)
+ * Cette fonction gère un seul enregistrement.
+ */
+export async function updateGrade(
+  enrollment_id: string,
+  course_offering_id: string,
+  score: number | null,
+) {
+  try {
+    await sql`
+      INSERT INTO grades (id, enrollment_id, course_offering_id, score)
+      VALUES (${crypto.randomUUID()}, ${enrollment_id}, ${course_offering_id}, ${score})
+      ON CONFLICT (enrollment_id, course_offering_id)
+      DO UPDATE SET 
+        score = EXCLUDED.score,
+        created_at = NOW()
+    `;
+    console.log("running");
+    revalidatePath("/test");
+    return { success: true };
+  } catch (error) {
+    console.error("Update error:", error);
+    return { success: false };
+  }
+}
+
+/**
+ * SAUVEGARDE GROUPÉE
+ * Utilise une transaction pour garantir que toutes les notes sont traitées.
+ */
