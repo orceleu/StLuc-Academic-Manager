@@ -838,7 +838,7 @@ export async function deleteOffering(id: string) {
   }
 }
 
-export async function getPalmaresData() {
+export async function getPalmaresData0() {
   try {
     // 1. Récupérer tous les étudiants inscrits avec leur filière
     const students = await sql`
@@ -866,13 +866,69 @@ export async function getPalmaresData() {
   SELECT enrollment_id, course_offering_id, score, created_at 
   FROM grades
 `;
+
     return { students, courses, grades };
   } catch (error) {
     console.error(error);
     return { students: [], courses: [], grades: [] };
   }
 }
+export async function getPalmaresData(sessionId: string, yearId: string) {
+  try {
+    // 1. Étudiants filtrés
+    const students = await sql`
+      SELECT 
+        e.id as enrollment_id, 
+        u.name as student_name, 
+        f.name as filiere_name,
+        ay.name as year_name
+      FROM enrollments e
+      JOIN students u ON e.student_id = u.id
+      JOIN filieres f ON e.filiere_id = f.id
+      JOIN academic_years ay ON e.academic_year_id = ay.id
+      WHERE 
+        e.session_id = ${sessionId}
+        AND e.academic_year_id = ${yearId}
+    `;
 
+    // 2. Cours filtrés
+    const courses = await sql`
+      SELECT 
+        co.id as offering_id, 
+        c.name as course_name, 
+        co.coefficient, 
+        f.name as filiere_name
+      FROM course_offerings co
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      WHERE 
+        co.session_id = ${sessionId}
+        AND co.academic_year_id = ${yearId}
+    `;
+
+    // 3. Notes filtrées (IMPORTANT 🔥)
+    const grades = await sql`
+      SELECT 
+        g.enrollment_id, 
+        g.course_offering_id, 
+        g.score, 
+        g.created_at
+      FROM grades g
+      JOIN enrollments e ON g.enrollment_id = e.id
+      JOIN course_offerings co ON g.course_offering_id = co.id
+      WHERE 
+        e.session_id = ${sessionId}
+        AND e.academic_year_id = ${yearId}
+        AND co.session_id = ${sessionId}
+        AND co.academic_year_id = ${yearId}
+    `;
+
+    return { students, courses, grades };
+  } catch (error) {
+    console.error(error);
+    return { students: [], courses: [], grades: [] };
+  }
+}
 export async function saveGrade(
   enrollmentId: string,
   offeringId: string,

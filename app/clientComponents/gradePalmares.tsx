@@ -10,11 +10,14 @@ import {
   GraduationCap,
 } from "lucide-react";
 import {
+  getAcademicYears,
   getPalmaresData,
+  getSessions,
   saveBulkGrades,
   updateGrade,
 } from "@/app/neon/request";
-
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 export default function GradesPage() {
   const [rawData, setRawData] = useState<any>({
     students: [],
@@ -28,9 +31,28 @@ export default function GradesPage() {
   const [pendingChanges, setPendingChanges] = useState<
     Record<string, number | string>
   >({});
+
   // 1. Modifier l'état initial
   const [filterFiliere, setFilterFiliere] = useState<string>("");
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [years, setYears] = useState<any[]>([]);
+  const [sessionId, setSessionId] = useState("");
+  const [yearId, setYearId] = useState("");
+  useEffect(() => {
+    async function loadFilters() {
+      const s = await getSessions(); // API
+      const y = await getAcademicYears();
 
+      setSessions(s);
+      setYears(y);
+
+      // Valeur par défaut
+      if (s.length > 0) setSessionId(s[0].id);
+      if (y.length > 0) setYearId(y[0].id);
+    }
+
+    loadFilters();
+  }, []);
   // 2. Mettre à jour la filière par défaut quand rawData change
   useEffect(() => {
     if (rawData.courses.length > 0 && filterFiliere === "") {
@@ -47,9 +69,19 @@ export default function GradesPage() {
     loadData();
   }, []);
 
-  async function loadData() {
+  /*async function loadData() {
     setLoading(true);
     const data = await getPalmaresData();
+    setRawData(data);
+    setLoading(false);
+  }*/
+  async function loadData() {
+    if (!sessionId || !yearId) return;
+
+    setLoading(true);
+
+    const data = await getPalmaresData(sessionId, yearId);
+
     setRawData(data);
     setLoading(false);
   }
@@ -126,7 +158,58 @@ export default function GradesPage() {
       [`${enrollId}-${offId}`]: num,
     }));
   };
+  const exportToExcel = () => {
+    // 1. Colonnes dynamiques (déjà filtrées par filière)
+    const courses = dynamicColumns;
 
+    // 2. Construire les données
+    const data = filteredStudents.map((student: any) => {
+      const row: any = {
+        Etudiant: student.student_name,
+        Filiere: student.filiere_name,
+      };
+
+      // Ajouter chaque cours
+      courses.forEach((course: any) => {
+        const score = getCurrentScore(
+          student.enrollment_id,
+          course.offering_id,
+        );
+
+        row[course.course_name] = score === "" ? "" : Number(score);
+      });
+
+      // Ajouter calculs
+      const sumNotes = calculateSumNotes(student.enrollment_id, courses);
+      const sumCoeff = calculateSumCoeff(courses);
+      const percent = calculateFinalPercentage(student.enrollment_id, courses);
+
+      row["Somme Notes"] = sumNotes.toFixed(2);
+      row["Somme Coeff"] = sumCoeff;
+      row["Moyenne (%)"] = percent;
+
+      return row;
+    });
+
+    // 3. Créer feuille Excel
+    const worksheet = XLSX.utils.json_to_sheet(data);
+
+    // 4. Créer workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Palmares");
+
+    // 5. Export fichier
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+    });
+
+    saveAs(blob, `palmares_${filterFiliere}.xlsx`);
+  };
   const handleSave = async () => {
     setIsSaving(true);
 
@@ -162,6 +245,9 @@ export default function GradesPage() {
     setIsSaving(false);
   };
 
+  useEffect(() => {
+    loadData();
+  }, [sessionId, yearId]);
   // --- FILTRAGE ---
   const dynamicColumns = rawData.courses.filter(
     (c: any) => c.filiere_name === filterFiliere,
@@ -251,6 +337,29 @@ export default function GradesPage() {
               </option>
             ))}
           </select>
+          <select
+            value={sessionId}
+            onChange={(e) => setSessionId(e.target.value)}
+            className="px-4 py-2.5 bg-gray-50 border rounded-xl text-sm font-bold"
+          >
+            {sessions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={yearId}
+            onChange={(e) => setYearId(e.target.value)}
+            className="px-4 py-2.5 bg-gray-50 border rounded-xl text-sm font-bold"
+          >
+            {years.map((y) => (
+              <option key={y.id} value={y.id}>
+                {y.name}
+              </option>
+            ))}
+          </select>
 
           <button
             onClick={handleSave}
@@ -266,7 +375,12 @@ export default function GradesPage() {
           </button>
         </div>
       </div>
-
+      <button
+        onClick={exportToExcel}
+        className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200"
+      >
+        Export Excel
+      </button>
       {/* TABLEAU DE RÉSULTATS */}
       <div className="bg-white rounded-[2rem] border shadow-2xl overflow-hidden">
         <div className="overflow-x-auto">
