@@ -47,7 +47,7 @@ export default function NavBar() {
             className="rounded-full shadow-sm"
           />
           <span className="font-bold text-lg md:text-xl tracking-tight text-gray-800">
-            StLuc Academic
+            POLYTECHNIQUE SAINT LUC TABARRE
           </span>
         </Link>
 

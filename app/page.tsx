@@ -22,17 +22,17 @@ export default function Home() {
         {/* CONTENT */}
         <div className="relative max-w-7xl mx-auto px-6 py-28 text-center text-white">
           <h1 className="text-4xl md:text-6xl font-bold leading-tight">
-            StLuc Academic Manager
+            POLYTECHNIQUE SAINT LUC TABARRE
           </h1>
 
           <p className="mt-4 text-lg md:text-xl text-white/80">
-            Système intelligent de gestion académique
+            Système Intelligent De Gestion Académique
           </p>
 
           <p className="mt-6 max-w-2xl mx-auto text-white/70">
-            Plateforme officielle de{" "}
+            Plateforme officielle de la{" "}
             <span className="font-semibold text-white">
-              Polytechnique St-Luc
+              LA POLYTECHNIQUE SAINT LUC TABARRE
             </span>{" "}
             pour gérer les notes, suivre la progression et centraliser toute
             l'activité académique en une seule interface moderne.
