@@ -880,6 +880,8 @@ export async function getPalmaresData(sessionId: string, yearId: string) {
       SELECT 
         e.id as enrollment_id, 
         u.name as student_name, 
+         e.student_id,          
+        e.filiere_id, 
         f.name as filiere_name,
         ay.name as year_name
       FROM enrollments e
@@ -1005,8 +1007,40 @@ export async function updateGrade(
     return { success: false };
   }
 }
+export async function enrollStudentsInBulk(data: any[]) {
+  try {
+    // On utilise une boucle pour traiter chaque admission
+    for (const item of data) {
+      await sql`
+        INSERT INTO enrollments (
+          id, 
+          student_id, 
+          filiere_id, 
+          academic_year_id, 
+          session_id
+        )
+        VALUES (
+          ${crypto.randomUUID()}, 
+          ${item.student_id}, 
+          ${item.filiere_id}, 
+          ${item.academic_year_id}, 
+          ${item.session_id}
+        )
+        
+      `;
+    }
 
-/**
- * SAUVEGARDE GROUPÉE
- * Utilise une transaction pour garantir que toutes les notes sont traitées.
- */
+    console.log(`Traitement terminé : ${data.length} étudiants analysés.`);
+
+    // On force la mise à jour du cache pour voir les nouveaux inscrits immédiatement
+    revalidatePath("/test");
+
+    return { success: true, count: data.length };
+  } catch (error) {
+    console.error("Erreur lors de l'admission en masse :", error);
+    return {
+      success: false,
+      error: "La base de données a refusé l'opération.",
+    };
+  }
+}

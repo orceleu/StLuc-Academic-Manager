@@ -10,7 +10,9 @@ import {
   GraduationCap,
 } from "lucide-react";
 import {
+  enrollStudentsInBulk,
   getAcademicYears,
+  getFilieres,
   getPalmaresData,
   getSessions,
   saveBulkGrades,
@@ -38,21 +40,64 @@ export default function GradesPage() {
   const [years, setYears] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState("");
   const [yearId, setYearId] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [targetFiliereId, setTargetFiliereId] = useState("");
+  const [allFilieres, setAllFilieres] = useState<any[]>([]);
   useEffect(() => {
     async function loadFilters() {
       const s = await getSessions(); // API
       const y = await getAcademicYears();
-
+      const f = await getFilieres(); // Récupère les filières via ton API
       setSessions(s);
       setYears(y);
+      setAllFilieres(f);
 
       // Valeur par défaut
       if (s.length > 0) setSessionId(s[0].id);
       if (y.length > 0) setYearId(y[0].id);
+      if (f.length > 0) setTargetFiliereId(f[0].id);
     }
 
     loadFilters();
   }, []);
+  const handleFinalPromotion = async () => {
+    setIsSaving(true);
+
+    try {
+      // 1. Filtrer les admis
+      const admitted = filteredStudents.filter((s: any) => {
+        const p = calculateFinalPercentage(s.enrollment_id, dynamicColumns);
+        return parseFloat(p) >= 70;
+      });
+
+      if (admitted.length === 0) {
+        alert("Aucun étudiant admissible (>= 70%)");
+        return;
+      }
+
+      // 2. Préparer les données avec les IDs trouvés
+      const dataToSave = admitted.map((s: any) => {
+        // On cherche l'étudiant dans rawData pour être sûr d'avoir son student_id original
+
+        return {
+          student_id: s.student_id, // Utilise l'ID trouvé
+          filiere_id: targetFiliereId, // L'ID sélectionné dans le popup
+          academic_year_id: yearId, // L'ID sélectionné dans le header
+          session_id: sessionId,
+        };
+      });
+
+      const res = await enrollStudentsInBulk(dataToSave);
+      if (res.success) {
+        alert("Promotion réussie !");
+        setIsModalOpen(false);
+      }
+    } catch (error) {
+      alert("Erreur lors de la promotion");
+    } finally {
+      setIsSaving(false);
+    }
+  };
   // 2. Mettre à jour la filière par défaut quand rawData change
   useEffect(() => {
     if (rawData.courses.length > 0 && filterFiliere === "") {
@@ -157,6 +202,65 @@ export default function GradesPage() {
       ...prev,
       [`${enrollId}-${offId}`]: num,
     }));
+  };
+  const handlePromoteStudents = async () => {
+    // 1. On vérifie si une année est bien sélectionnée
+    if (!yearId) {
+      alert("Veuillez sélectionner une année académique cible.");
+      return;
+    }
+
+    // Confirmation visuelle avec le nom de l'année
+    const selectedYearName = years.find((y) => y.id === yearId)?.name;
+    if (
+      !confirm(
+        `Voulez-vous admettre les étudiants (>= 70%) en ${selectedYearName} ?`,
+      )
+    )
+      return;
+
+    setIsSaving(true);
+
+    try {
+      // 2. Filtrer les étudiants qui ont 70% ou plus
+      const admittedStudents = filteredStudents.filter((student: any) => {
+        const percent = calculateFinalPercentage(
+          student.enrollment_id,
+          dynamicColumns,
+        );
+        return parseFloat(percent) >= 70;
+      });
+
+      if (admittedStudents.length === 0) {
+        alert("Aucun étudiant n'atteint les 70% requis pour la promotion.");
+        setIsSaving(false);
+        return;
+      }
+
+      // 3. Préparer les données en utilisant yearId du select
+      const promotionData = admittedStudents.map((s: any) => ({
+        student_id: s.student_id, // Récupéré via rawData
+        filiere_id: s.filiere_id, // Récupéré via rawData
+        academic_year_id: yearId, // <--- Voici l'ID de ton select !
+        session_id: sessionId, // Session actuelle
+      }));
+
+      // 4. Appel de la fonction Neon
+      const res = await enrollStudentsInBulk(promotionData);
+
+      if (res.success) {
+        alert(
+          `Félicitations ! ${admittedStudents.length} étudiants ont été inscrits en ${selectedYearName}.`,
+        );
+      } else {
+        alert("Erreur lors de l'inscription en base de données.");
+      }
+    } catch (error) {
+      console.error("Promotion error:", error);
+      alert("Une erreur critique est survenue.");
+    } finally {
+      setIsSaving(false);
+    }
   };
   const exportToExcel = () => {
     // 1. Colonnes dynamiques (déjà filtrées par filière)
@@ -362,16 +466,18 @@ export default function GradesPage() {
           </select>
 
           <button
-            onClick={handleSave}
-            disabled={Object.keys(pendingChanges).length === 0 || isSaving}
+            onClick={() => {
+              setIsModalOpen(true);
+            }}
+            disabled={isSaving || filteredStudents.length === 0}
             className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-xl shadow-indigo-200"
           >
             {isSaving ? (
               <Loader2 className="animate-spin" size={18} />
             ) : (
-              <Save size={18} />
+              <GraduationCap size={18} />
             )}
-            Sauvegarder les notes
+            Admettre en 2ème année
           </button>
         </div>
       </div>
@@ -546,6 +652,64 @@ export default function GradesPage() {
           </table>
         </div>
       </div>
+      {/* MODAL DE CONFIRMATION */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl">
+                <GraduationCap size={28} />
+              </div>
+              <h2 className="text-xl font-black text-slate-800">
+                Confirmer Admission
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">
+                  Filière de destination
+                </label>
+                <select
+                  value={targetFiliereId}
+                  onChange={(e) => setTargetFiliereId(e.target.value)}
+                  className="w-full mt-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  {allFilieres.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                <p className="text-xs text-amber-700 font-medium italic">
+                  Note: Seuls les étudiants ayant une moyenne supérieure ou
+                  égale à **70%** seront transférés.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-8">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="py-3 rounded-2xl font-bold text-slate-500 hover:bg-slate-100 transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleFinalPromotion}
+                disabled={isSaving}
+                className="py-3 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+              >
+                {isSaving && <Loader2 size={16} className="animate-spin" />}
+                Confirmer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

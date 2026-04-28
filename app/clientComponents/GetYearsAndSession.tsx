@@ -69,12 +69,12 @@ export default function SetupPage2() {
 
   return (
     <div className="max-w-6xl mx-auto p-8 space-y-12">
-      <header className="flex justify-between items-center border-b pb-6">
+      <header className="grid grid-cols-1 md:grid-cols-2 border-b pb-6">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900">
             Dashboard Académique
           </h1>
-          <p className="text-gray-500">
+          <p className="text-gray-500 mb-5">
             Configuration temps réel de l'établissement.
           </p>
         </div>

@@ -46,7 +46,7 @@ export default function NavBar() {
             height={50}
             className="rounded-full shadow-sm"
           />
-          <span className="font-bold text-lg md:text-xl tracking-tight text-gray-800">
+          <span className="font-bold text-[8px] md:text-xl tracking-tight text-gray-800">
             POLYTECHNIQUE SAINT LUC TABARRE
           </span>
         </Link>

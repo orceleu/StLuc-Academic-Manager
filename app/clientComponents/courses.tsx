@@ -17,6 +17,8 @@ import {
   addCourseOffering,
   assignTeacher,
 } from "@/app/neon/request";
+import { useRouter } from "next/navigation";
+import { GoArrowRight } from "react-icons/go";
 
 export default function CourseManagementPage({
   filieres,
@@ -38,7 +40,7 @@ export default function CourseManagementPage({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false); // Pour l'état de chargement
-
+  const router = useRouter();
   const handleFullAssignment = async () => {
     // Réinitialiser les messages
     setError(null);
@@ -113,6 +115,15 @@ export default function CourseManagementPage({
           </button>
         </div>
       </section>
+
+      <button
+        onClick={() => {
+          router.push("/dashboard/cours/details");
+        }}
+        className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition"
+      >
+        <GoArrowRight size={18} /> Voir les horaires et affectation
+      </button>
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* SECTION 2: COURSE OFFERINGS */}
