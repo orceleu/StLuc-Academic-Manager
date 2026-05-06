@@ -178,16 +178,16 @@ export default function GradesPageStudents() {
   return (
     <div className="p-2 md:p-6 space-y-6 bg-gray-50 min-h-screen font-sans">
       {/* HEADER & CONTRÔLES */}
-      <div className="flex flex-col lg:flex-row justify-between gap-6 bg-white p-6 rounded-md border shadow-sm items-center">
+      <div className="flex flex-col lg:flex-row justify-between gap-6 bg-white p-6 rounded-xl border shadow-sm items-center">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100">
+          <div className="p-3 bg-slate-900 text-white rounded-2xl shadow-lg">
             <Calculator size={28} />
           </div>
           <div>
             <h1 className="text-2xl font-black text-gray-900 leading-none">
               Mon Palmarès Académique
             </h1>
-            <p className="text-xs text-gray-400 font-bold uppercase mt-1 tracking-widest text-indigo-500">
+            <p className="text-xs text-slate-500 font-bold uppercase mt-1 tracking-widest">
               Consultation des résultats
             </p>
           </div>
@@ -202,13 +202,13 @@ export default function GradesPageStudents() {
             <input
               type="text"
               placeholder="Rechercher un étudiant..."
-              className="pl-10 pr-4 py-2.5 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 text-sm w-56"
+              className="pl-10 pr-4 py-2.5 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-slate-200 text-sm w-56"
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
           <select
-            className="px-4 py-2.5 bg-gray-50 border rounded-xl outline-none text-sm font-bold text-gray-600"
+            className="px-4 py-2.5 bg-gray-50 border rounded-xl outline-none text-sm font-bold text-gray-700"
             value={filterFiliere}
             onChange={(e) => setFilterFiliere(e.target.value)}
           >
@@ -224,7 +224,7 @@ export default function GradesPageStudents() {
           <select
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
-            className="px-4 py-2.5 bg-gray-50 border rounded-xl text-sm font-bold text-gray-600"
+            className="px-4 py-2.5 bg-gray-50 border rounded-xl text-sm font-bold text-gray-700"
           >
             {sessions.map((s) => (
               <option key={s.id} value={s.id}>
@@ -236,7 +236,7 @@ export default function GradesPageStudents() {
           <select
             value={yearId}
             onChange={(e) => setYearId(e.target.value)}
-            className="px-4 py-2.5 bg-gray-50 border rounded-xl text-sm font-bold text-gray-600"
+            className="px-4 py-2.5 bg-gray-50 border rounded-xl text-sm font-bold text-gray-700"
           >
             {years.map((y) => (
               <option key={y.id} value={y.id}>
@@ -247,120 +247,131 @@ export default function GradesPageStudents() {
         </div>
       </div>
 
-      {/*<div className="flex items-center gap-3">
-        <Button variant={"outline"} size={"sm"} onClick={exportToExcel}>
-          Exporter en Excel
-        </Button>
-      </div>*/}
+      {/* AFFICHAGE DES RÉSULTATS (STYLE RELEVÉ DE NOTES) */}
+      {loading ? (
+        <div className="flex justify-center items-center h-64 w-full">
+          <div className="text-center text-gray-400 font-bold italic animate-pulse flex flex-col items-center gap-2">
+            <Loader2 className="animate-spin text-slate-400" size={32} />
+            Synchronisation des notes...
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredStudents.length > 0 ? (
+            filteredStudents.map((student: any) => {
+              const sNotes = calculateSumNotes(
+                student.enrollment_id,
+                dynamicColumns,
+              );
+              const sCoeff = calculateSumCoeff(dynamicColumns);
+              const percent = calculateFinalPercentage(
+                student.enrollment_id,
+                dynamicColumns,
+              );
+              const isPassing = parseFloat(percent) >= 50;
 
-      {/* TABLEAU DE RÉSULTATS */}
-      <div className="bg-white rounded-md border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-slate-900 text-white">
-                <th className="p-5 text-left sticky left-0 bg-slate-900 z-20 min-w-[240px] border-r border-slate-800 text-[10px] font-black uppercase tracking-widest">
-                  Étudiant / Filière
-                </th>
-                {dynamicColumns.map((course: any) => (
-                  <th
-                    key={course.offering_id}
-                    className="p-4 text-center border-r border-slate-800 min-w-[110px]"
-                  >
-                    <div className="text-[10px] font-medium text-slate-400 truncate mb-1">
-                      {course.course_name}
+              return (
+                <div
+                  key={student.enrollment_id}
+                  className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col"
+                >
+                  {/* En-tête du bulletin */}
+                  <div className="p-5 border-b-4 border-slate-900 bg-gray-50">
+                    <p className="text-[10px] text-slate-500 font-black tracking-widest uppercase mb-1">
+                      Bulletin de notes
+                    </p>
+                    <h3 className="font-black text-gray-900 text-xl leading-tight">
+                      {student.student_name}
+                    </h3>
+                    <p className="text-sm text-slate-600 font-medium mt-1">
+                      {student.filiere_name}
+                    </p>
+                  </div>
+
+                  {/* Corps du bulletin (Colonnes) */}
+                  <div className="p-5 flex-grow bg-white">
+                    {/* En-têtes de colonnes */}
+                    <div className="grid grid-cols-12 gap-2 border-b-2 border-gray-800 pb-2 mb-3 text-[11px] font-black uppercase tracking-widest text-gray-500">
+                      <div className="col-span-8">Matière</div>
+                      <div className="col-span-2 text-center">Note</div>
+                      <div className="col-span-2 text-center">Coef</div>
                     </div>
-                    <div className="text-indigo-400 font-black text-xs">
-                      C: {course.coefficient}
+
+                    {/* Lignes de cours */}
+                    <div className="space-y-1">
+                      {dynamicColumns.map((course: any) => {
+                        const score = getCurrentScore(
+                          student.enrollment_id,
+                          course.offering_id,
+                        );
+
+                        return (
+                          <div
+                            key={course.offering_id}
+                            className="grid grid-cols-12 gap-2 items-center text-sm py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
+                          >
+                            <div
+                              className="col-span-8 font-medium text-gray-800 truncate pr-2"
+                              title={course.course_name}
+                            >
+                              {course.course_name}
+                            </div>
+                            <div className="col-span-2 text-center font-bold text-slate-900">
+                              {score !== "" ? score : "-"}
+                            </div>
+                            <div className="col-span-2 text-center text-gray-500 text-xs">
+                              {course.coefficient}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </th>
-                ))}
-                <th className="p-4 text-center bg-slate-800 min-w-[120px] text-[10px] font-black uppercase">
-                  Somme Notes
-                </th>
-                <th className="p-4 text-center bg-slate-800 min-w-[100px] text-[10px] font-black uppercase">
-                  Somme Coeff
-                </th>
-                <th className="p-4 text-center bg-indigo-600 min-w-[140px] text-[10px] font-black uppercase">
-                  Moyenne (%)
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={dynamicColumns.length + 4}
-                    className="p-32 text-center text-gray-300 font-bold italic animate-pulse"
-                  >
-                    Synchronisation des notes...
-                  </td>
-                </tr>
-              ) : (
-                filteredStudents.map((student: any) => {
-                  const sNotes = calculateSumNotes(
-                    student.enrollment_id,
-                    dynamicColumns,
-                  );
-                  const sCoeff = calculateSumCoeff(dynamicColumns);
-                  const percent = calculateFinalPercentage(
-                    student.enrollment_id,
-                    dynamicColumns,
-                  );
+                  </div>
 
-                  return (
-                    <tr
-                      key={student.enrollment_id}
-                      className="hover:bg-indigo-50/20 transition-all group"
-                    >
-                      <td className="p-5 sticky left-0 bg-white z-10 border-r font-bold text-gray-800 group-hover:bg-indigo-50 transition-colors">
-                        <div className="flex flex-col">
-                          <span className="text-sm">
-                            {student.student_name}
-                          </span>
-                          <span className="text-[9px] text-indigo-500 font-black tracking-tighter uppercase">
-                            {student.filiere_name}
-                          </span>
-                        </div>
-                      </td>
-
-                      {dynamicColumns.map((course: any) => (
-                        <td
-                          key={course.offering_id}
-                          className="p-4 text-center border-r text-sm font-bold text-gray-700 bg-gray-50/20"
-                        >
-                          {getCurrentScore(
-                            student.enrollment_id,
-                            course.offering_id,
-                          )}
-                        </td>
-                      ))}
-
-                      <td className="p-4 text-center bg-gray-50/50 font-mono font-bold text-slate-600">
+                  {/* Pied de page du bulletin (Totaux) */}
+                  <div className="bg-slate-50 border-t border-gray-200 p-5">
+                    <div className="flex justify-between items-center text-sm mb-2">
+                      <span className="text-gray-600 font-medium">
+                        Somme des notes
+                      </span>
+                      <span className="font-bold text-gray-900 font-mono text-base">
                         {sNotes.toFixed(2)}
-                      </td>
-
-                      <td className="p-4 text-center bg-gray-50/50 font-mono text-slate-400 font-medium">
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm mb-4">
+                      <span className="text-gray-600 font-medium">
+                        Somme des coefficients
+                      </span>
+                      <span className="font-bold text-gray-900 font-mono text-base">
                         {sCoeff}
-                      </td>
+                      </span>
+                    </div>
 
-                      <td
-                        className={`p-4 text-center font-black text-xl bg-indigo-50/30 ${
-                          parseFloat(percent) >= 50
-                            ? "text-emerald-600"
-                            : "text-rose-600"
+                    <div className="flex justify-between items-center pt-4 border-t-2 border-slate-900">
+                      <span className="text-sm font-black uppercase tracking-widest text-slate-900">
+                        Moyenne Générale
+                      </span>
+                      <span
+                        className={`text-2xl font-black ${
+                          isPassing ? "text-emerald-600" : "text-rose-600"
                         }`}
                       >
                         {percent}%
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-full flex justify-center py-12">
+              <p className="text-gray-400 font-medium">
+                Aucun étudiant trouvé pour ces critères.
+              </p>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
