@@ -1,19 +1,37 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Calendar, Layers, Plus, Trash2, AlertCircle } from "lucide-react";
+import {
+  Calendar,
+  Layers,
+  Plus,
+  Trash2,
+  AlertCircle,
+  PlusIcon,
+} from "lucide-react";
 import {
   addAcademicYear,
   addSession,
   deleteSession,
   getAcademicYears,
+  getFilieres,
   getSessions,
 } from "../neon/request";
+import { AcademicData } from "../dashboard/page";
+import RegisterStudentModal from "./addStudent";
 
 export default function SetupPage2() {
   const [years, setYears] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [count, setCount] = useState<number | null>(null);
+
+  const [data, setData] = useState<AcademicData>({
+    filieres: [],
+    sessions: [],
+    years: [],
+  });
 
   // Modales & Formulaires (états précédents conservés)
   const [showYearModal, setShowYearModal] = useState(false);
@@ -66,28 +84,55 @@ export default function SetupPage2() {
       refreshData();
     }
   };
+  useEffect(() => {
+    const fetchData = async () => {
+      const [f, s, y] = await Promise.all([
+        getFilieres(),
+        getSessions(),
+        getAcademicYears(),
+      ]);
 
+      setData({
+        filieres: f || [],
+        sessions: s || [],
+        years: y || [],
+      });
+    };
+
+    fetchData();
+    //fetchCount();
+  }, []);
   return (
-    <div className="max-w-6xl mx-auto p-8 space-y-12">
-      <header className="grid grid-cols-1 md:grid-cols-2 border-b pb-6">
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-900">
-            Dashboard Académique
-          </h1>
-          <p className="text-gray-500 mb-5">
-            Configuration temps réel de l'établissement.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div className=" mx-auto p-2 md:p-6 space-y-12">
+      <header className="grid grid-cols-1 md:grid-cols-2 border-b pb-6 w-full ">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            {" "}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center w-full px-4 py-2 bg-violet-600 gap-2  text-white  rounded-lg font-medium hover:bg-indigo-700 transition shadow-sm"
+            >
+              <Plus size={18} /> Nouvel étudiant{" "}
+              {count !== null && `(${count})`}
+            </button>
+            {/* MODAL */}
+            <RegisterStudentModal
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+              filieres={data.filieres}
+              sessions={data.sessions}
+              academicYears={data.years}
+            />
+          </div>{" "}
           <button
             onClick={() => setShowYearModal(true)}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
+            className="flex items-center  bg-indigo-600 gap-2  text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
           >
             <Calendar size={18} /> Nouvelle Année
           </button>
           <button
             onClick={() => setShowSessionModal(true)}
-            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition"
+            className="flex items-center  bg-emerald-600 gap-2 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition"
           >
             <Plus size={18} /> Nouvelle Session
           </button>
@@ -133,11 +178,11 @@ export default function SetupPage2() {
             {sessions.map((s) => (
               <div
                 key={s.id}
-                className="group bg-white border rounded-xl p-4 flex justify-between items-center hover:shadow-md transition"
+                className="group bg-white border rounded-xl p-2 flex justify-between items-center hover:shadow-md transition"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-lg flex items-center justify-center font-black text-xl">
-                    {s.name}
+                    {s.name.slice(0, 2)}
                   </div>
                   <span className="font-semibold text-gray-700">
                     Session {s.name}

@@ -124,8 +124,8 @@ export default function AssignmentTable() {
       </div>
 
       {/* --- TABLEAU --- */}
-      <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-2xl border  overflow-hidden">
+        <div className="overflow-x-auto  max-h-[70vh] overflow-y-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/50 border-b">

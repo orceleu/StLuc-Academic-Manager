@@ -176,7 +176,7 @@ export default function GradesPageStudents() {
   );
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen font-sans">
+    <div className="p-2 md:p-6 space-y-6 bg-gray-50 min-h-screen font-sans">
       {/* HEADER & CONTRÔLES */}
       <div className="flex flex-col lg:flex-row justify-between gap-6 bg-white p-6 rounded-md border shadow-sm items-center">
         <div className="flex items-center gap-4">

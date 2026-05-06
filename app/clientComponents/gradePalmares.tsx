@@ -398,7 +398,7 @@ export default function GradesPage() {
     return new Date(lastTimestamp).toLocaleDateString();
   };
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen font-sans">
+    <div className="p-2 md:p-6 space-y-6 bg-gray-50 min-h-screen font-sans">
       {/* HEADER & CONTRÔLES */}
       <div className="flex flex-col lg:flex-row justify-between gap-6 bg-white p-6 rounded-md border shadow-sm items-center">
         <div className="flex items-center gap-4">
@@ -497,13 +497,13 @@ export default function GradesPage() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-slate-900 text-white">
-                <th className="p-5 text-left sticky left-0 bg-slate-900 z-20 min-w-[240px] border-r border-slate-800 text-[10px] font-black uppercase tracking-widest">
+                <th className="p-5 text-left sticky left-0 bg-slate-900 z-20  border-r border-slate-800 text-[10px] font-black uppercase tracking-widest">
                   Étudiant / Filière
                 </th>
                 {dynamicColumns.map((course: any) => (
                   <th
                     key={course.offering_id}
-                    className="p-4 text-center border-r border-slate-800 min-w-[110px]"
+                    className="p-4 text-center border-r border-slate-800 "
                   >
                     <div className="text-[10px] font-medium text-slate-400 truncate mb-1">
                       {course.course_name}
@@ -641,11 +641,6 @@ export default function GradesPage() {
                           <span className="font-bold text-slate-700">
                             {lastModif}
                           </span>
-                          {lastModif !== "Aucune" && (
-                            <span className="text-[8px] uppercase">
-                              Aujourd'hui
-                            </span>
-                          )}
                         </div>
                       </td>
                     </tr>

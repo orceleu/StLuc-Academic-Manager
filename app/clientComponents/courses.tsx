@@ -90,7 +90,7 @@ export default function CourseManagementPage({
   };*/
 
   return (
-    <div className="max-w-7xl mx-auto p-8 space-y-16">
+    <div className=" mx-auto p-2 max-w-6xl md:p-6 space-y-16">
       {/* SECTION 1: CATALOGUE DES COURS */}
       <section className="bg-white rounded-2xl border p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-6 border-b pb-4">

@@ -133,7 +133,7 @@ export default function FilierePage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-8">
+    <div className="max-w-6xl mx-auto p-2 md:p-6">
       <h1 className="text-3xl font-bold mb-8">Gestion des Filières</h1>
       {/* BLOC AJOUT FILIERE */}
       <div className="bg-gray-100 p-6 rounded-lg mb-10">
@@ -203,7 +203,7 @@ export default function FilierePage() {
         </button>
       </div>
       {/* TABLEAU (Apparence conservée) */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto  max-h-[70vh] overflow-y-auto">
         <table className="w-full border border-gray-200 rounded-lg overflow-hidden">
           <thead className="bg-gray-100 text-gray-700 text-sm uppercase">
             <tr>

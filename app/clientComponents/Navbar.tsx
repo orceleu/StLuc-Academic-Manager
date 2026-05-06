@@ -87,19 +87,9 @@ export default function NavBar() {
             <Link href="/" className="font-semibold text-gray-800 px-2">
               Accueil
             </Link>
+
             <Separator />
-            <p className="font-bold text-yellow-700 px-2">Filières</p>
-            <div className="flex flex-col gap-3 pl-6 text-sm text-gray-600">
-              <Link href="/ourprogram/education">Informatique bureautique</Link>
-              <Link href="/ourprogram/health">Télécommunications</Link>
-              <Link href="/ourprogram/food">Mécanique Auto</Link>
-            </div>
-            <Separator />
-            <p className="font-bold text-yellow-700 px-2">À propos</p>
-            <div className="flex flex-col gap-3 pl-6 text-sm text-gray-600 pb-4">
-              <Link href="/contact">Vision</Link>
-              <Link href="/blog">Équipe</Link>
-            </div>
+
             {user && (
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-xs text-gray-500 truncate">{user.email}</p>

@@ -27,7 +27,7 @@ import {
   getTotalTeachers,
 } from "../neon/request";
 
-interface AcademicData {
+export interface AcademicData {
   filieres: any[];
   sessions: any[];
   years: any[];
@@ -107,7 +107,7 @@ export default function AdminOverview() {
   if (loading)
     return (
       <div className="flex items-center justify-center h-screen">
-        <LoaderIcon className="animate-spin w-8 h-8 text-indigo-600" />
+        <LoaderIcon className="animate-spin w-8 h-8 " />
       </div>
     );
 
@@ -115,7 +115,7 @@ export default function AdminOverview() {
     <>
       <NavBar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-20">
+      <div className="max-w-7xl mx-auto px-4  lg:px-8 py-8 mt-20">
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-10">
           <div>
@@ -124,28 +124,12 @@ export default function AdminOverview() {
               Rôle : <span className="font-semibold">{role}</span>
             </p>
           </div>
-
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="w-full md:w-auto bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-indigo-700 transition shadow-sm"
-          >
-            + Nouvel étudiant {count !== null && `(${count})`}
-          </button>
         </div>
-
-        {/* MODAL */}
-        <RegisterStudentModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          filieres={data.filieres}
-          sessions={data.sessions}
-          academicYears={data.years}
-        />
 
         <SetupPage2 />
 
         {/* GRID */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 md:p-4">
           {/* FILIERES */}
           {role === "admin" && (
             <div
