@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Calculator, Loader2 } from "lucide-react";
+import { Search, Calculator, Loader2, Table, LayoutGrid } from "lucide-react";
 import {
   getAcademicYears,
   getFilieres,
@@ -29,6 +29,9 @@ export default function GradesPageStudents() {
   const [sessionId, setSessionId] = useState("");
   const [yearId, setYearId] = useState("");
   const [allFilieres, setAllFilieres] = useState<any[]>([]);
+
+  // État pour le switch d'affichage (true = mode cartes, false = mode tableau)
+  const [isCardView, setIsCardView] = useState(true);
 
   useEffect(() => {
     async function loadFilters() {
@@ -247,7 +250,41 @@ export default function GradesPageStudents() {
         </div>
       </div>
 
-      {/* AFFICHAGE DES RÉSULTATS (STYLE RELEVÉ DE NOTES) */}
+      {/* BOUTON D'EXPORT VERS EXCEL <div className="flex items-center gap-3">
+        <Button variant={"outline"} size={"sm"} onClick={exportToExcel}>
+          Exporter en Excel
+        </Button>
+      </div>*/}
+
+      {/* SWITCH POUR BASCULER ENTRE LE MODE CARDS ET LE MODE TABLEAU */}
+      <div className="flex justify-end bg-white p-3 border rounded-xl shadow-sm">
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+          <button
+            onClick={() => setIsCardView(true)}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-black uppercase rounded-md transition-all ${
+              isCardView
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-gray-500 hover:text-slate-900"
+            }`}
+          >
+            <LayoutGrid size={16} />
+            Bulletins
+          </button>
+          <button
+            onClick={() => setIsCardView(false)}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-black uppercase rounded-md transition-all ${
+              !isCardView
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-gray-500 hover:text-slate-900"
+            }`}
+          >
+            <Table size={16} />
+            Palmarès
+          </button>
+        </div>
+      </div>
+
+      {/* AFFICHAGE CONDITIONNEL */}
       {loading ? (
         <div className="flex justify-center items-center h-64 w-full">
           <div className="text-center text-gray-400 font-bold italic animate-pulse flex flex-col items-center gap-2">
@@ -255,7 +292,8 @@ export default function GradesPageStudents() {
             Synchronisation des notes...
           </div>
         </div>
-      ) : (
+      ) : isCardView ? (
+        /* MODE BULLETINS (CARDS) */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredStudents.length > 0 ? (
             filteredStudents.map((student: any) => {
@@ -275,7 +313,6 @@ export default function GradesPageStudents() {
                   key={student.enrollment_id}
                   className="bg-white rounded-xl border border-gray-300 shadow-sm overflow-hidden flex flex-col"
                 >
-                  {/* En-tête du bulletin */}
                   <div className="p-5 border-b-4 border-slate-900 bg-gray-50">
                     <p className="text-[10px] text-slate-500 font-black tracking-widest uppercase mb-1">
                       Bulletin de notes
@@ -288,16 +325,13 @@ export default function GradesPageStudents() {
                     </p>
                   </div>
 
-                  {/* Corps du bulletin (Colonnes) */}
                   <div className="p-5 flex-grow bg-white">
-                    {/* En-têtes de colonnes */}
                     <div className="grid grid-cols-12 gap-2 border-b-2 border-gray-800 pb-2 mb-3 text-[11px] font-black uppercase tracking-widest text-gray-500">
                       <div className="col-span-8">Matière</div>
                       <div className="col-span-2 text-center">Note</div>
                       <div className="col-span-2 text-center">Coef</div>
                     </div>
 
-                    {/* Lignes de cours */}
                     <div className="space-y-1">
                       {dynamicColumns.map((course: any) => {
                         const score = getCurrentScore(
@@ -328,7 +362,6 @@ export default function GradesPageStudents() {
                     </div>
                   </div>
 
-                  {/* Pied de page du bulletin (Totaux) */}
                   <div className="bg-slate-50 border-t border-gray-200 p-5">
                     <div className="flex justify-between items-center text-sm mb-2">
                       <span className="text-gray-600 font-medium">
@@ -370,6 +403,104 @@ export default function GradesPageStudents() {
               </p>
             </div>
           )}
+        </div>
+      ) : (
+        /* MODE PALMARÈS (TABLEAU) */
+        <div className="bg-white rounded-md border overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-slate-900 text-white">
+                  <th className="p-5 text-left sticky left-0 bg-slate-900 z-20 border-r border-slate-800 text-[10px] font-black uppercase tracking-widest">
+                    Étudiant / Filière
+                  </th>
+                  {dynamicColumns.map((course: any) => (
+                    <th
+                      key={course.offering_id}
+                      className="p-4 text-center border-r border-slate-800"
+                    >
+                      <div className="text-[10px] font-medium text-slate-400 truncate mb-1">
+                        {course.course_name}
+                      </div>
+                      <div className="text-indigo-400 font-black text-xs">
+                        C: {course.coefficient}
+                      </div>
+                    </th>
+                  ))}
+                  <th className="p-4 text-center bg-slate-800 min-w-[120px] text-[10px] font-black uppercase">
+                    Somme Notes
+                  </th>
+                  <th className="p-4 text-center bg-slate-800 min-w-[100px] text-[10px] font-black uppercase">
+                    Somme Coeff
+                  </th>
+                  <th className="p-4 text-center bg-indigo-600 min-w-[140px] text-[10px] font-black uppercase">
+                    Moyenne (%)
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredStudents.map((student: any) => {
+                  const sNotes = calculateSumNotes(
+                    student.enrollment_id,
+                    dynamicColumns,
+                  );
+                  const sCoeff = calculateSumCoeff(dynamicColumns);
+                  const percent = calculateFinalPercentage(
+                    student.enrollment_id,
+                    dynamicColumns,
+                  );
+
+                  return (
+                    <tr
+                      key={student.enrollment_id}
+                      className="hover:bg-indigo-50/20 transition-all group"
+                    >
+                      <td className="p-5 sticky left-0 bg-white z-10 border-r font-bold text-gray-800 group-hover:bg-indigo-50 transition-colors">
+                        <div className="flex flex-col">
+                          <span className="text-sm">
+                            {student.student_name}
+                          </span>
+                          <span className="text-[9px] text-indigo-500 font-black tracking-tighter uppercase">
+                            {student.filiere_name}
+                          </span>
+                        </div>
+                      </td>
+
+                      {dynamicColumns.map((course: any) => (
+                        <td
+                          key={course.offering_id}
+                          className="p-4 text-center border-r text-sm font-bold text-gray-700 bg-gray-50/20"
+                        >
+                          {getCurrentScore(
+                            student.enrollment_id,
+                            course.offering_id,
+                          )}
+                        </td>
+                      ))}
+
+                      <td className="p-4 text-center bg-gray-50/50 font-mono font-bold text-slate-600">
+                        {sNotes.toFixed(2)}
+                      </td>
+
+                      <td className="p-4 text-center bg-gray-50/50 font-mono text-slate-400 font-medium">
+                        {sCoeff}
+                      </td>
+
+                      <td
+                        className={`p-4 text-center font-black text-xl bg-indigo-50/30 ${
+                          parseFloat(percent) >= 50
+                            ? "text-emerald-600"
+                            : "text-rose-600"
+                        }`}
+                      >
+                        {percent}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
