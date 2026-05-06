@@ -120,7 +120,7 @@ export default function CourseManagementPage({
         onClick={() => {
           router.push("/dashboard/cours/details");
         }}
-        className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition"
+        className="bg-blue-600 mx-auto text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition"
       >
         <GoArrowRight size={18} /> Voir les horaires et affectation
       </button>

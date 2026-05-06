@@ -51,43 +51,6 @@ export default function NavBar() {
           </span>
         </Link>
 
-        {/* DESKTOP MENU */}
-        <div className="hidden md:flex items-center gap-8">
-          <NavLink href="/" label="Accueil" />
-
-          <NavDropdown
-            label="Filières"
-            items={[
-              {
-                label: "Informatique bureautique",
-                href: "/ourprogram/education",
-              },
-              { label: "Télécommunications", href: "/ourprogram/health" },
-              { label: "Mécanique Auto", href: "/ourprogram/food" },
-              { label: "Electrotechnique", href: "/ourprogram/food" },
-              { label: "Plomberie & Hydraulique", href: "/ourprogram/food" },
-            ]}
-          />
-
-          <NavDropdown
-            label="Admission"
-            items={[
-              { label: "Conditions d’admission", href: "/admission-docs" },
-              { label: "Procédure d’inscription", href: "/who-we-are" },
-            ]}
-          />
-
-          <NavDropdown
-            label="À propos"
-            underline
-            items={[
-              { label: "Présentation", href: "#getupdate" },
-              { label: "Vision", href: "/contact" },
-              { label: "Équipe pédagogique", href: "/blog" },
-            ]}
-          />
-        </div>
-
         {/* AUTH SECTION */}
         <div className="flex items-center gap-4">
           <div className="hidden md:block text-right">

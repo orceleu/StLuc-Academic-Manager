@@ -121,31 +121,31 @@ export default function TeacherPage() {
             placeholder="Nom complet"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="border p-2 rounded"
+            className="flex-1 p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
           />
           <input
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="border p-2 rounded"
+            className="flex-1 p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
           />
           <input
             placeholder="Telephone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="border p-2 rounded"
+            className="flex-1 p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
           />
           <input
             placeholder="Password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="border p-2 rounded"
+            className="flex-1 p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
           />
         </div>
         <button
           onClick={handleAddTeacher}
-          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded"
+          className="mt-4 w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition"
         >
           Ajouter
         </button>
@@ -185,18 +185,20 @@ export default function TeacherPage() {
                 <td className="px-4 py-3">{t.phone}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex justify-center gap-3">
-                    <button
+                    <Button
+                      size={"sm"}
+                      variant={"outline"}
                       onClick={() => setEditData(t)}
-                      className="text-blue-600 hover:underline"
                     >
                       Modifier
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size={"sm"}
+                      variant={"destructive"}
                       onClick={() => setDeleteData(t)}
-                      className="text-red-600 hover:underline"
                     >
                       Supprimer
-                    </button>
+                    </Button>
                   </div>
                 </td>
               </tr>

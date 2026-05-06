@@ -20,6 +20,7 @@ import {
 } from "@/app/neon/request";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { Button } from "@/components/ui/button";
 export default function GradesPage() {
   const [rawData, setRawData] = useState<any>({
     students: [],
@@ -399,7 +400,7 @@ export default function GradesPage() {
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen font-sans">
       {/* HEADER & CONTRÔLES */}
-      <div className="flex flex-col lg:flex-row justify-between gap-6 bg-white p-6 rounded-[2rem] border shadow-sm items-center">
+      <div className="flex flex-col lg:flex-row justify-between gap-6 bg-white p-6 rounded-md border shadow-sm items-center">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100">
             <Calculator size={28} />
@@ -470,25 +471,28 @@ export default function GradesPage() {
               setIsModalOpen(true);
             }}
             disabled={isSaving || filteredStudents.length === 0}
-            className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-xl shadow-indigo-200"
+            className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 transition-all "
           >
             {isSaving ? (
               <Loader2 className="animate-spin" size={18} />
             ) : (
               <GraduationCap size={18} />
             )}
-            Admettre en 2ème année
+            Admis en 2ème année
           </button>
         </div>
       </div>
-      <button
-        onClick={exportToExcel}
-        className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200"
-      >
-        Export Excel
-      </button>
+      <div className="flex items-center gap-3">
+        <Button variant={"outline"} size={"sm"} onClick={exportToExcel}>
+          Exporter en Excel
+        </Button>
+        <Button variant={"outline"} size={"sm"} onClick={exportToExcel}>
+          Exporter en PDF
+        </Button>
+      </div>
+
       {/* TABLEAU DE RÉSULTATS */}
-      <div className="bg-white rounded-[2rem] border shadow-2xl overflow-hidden">
+      <div className="bg-white rounded-md border  overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>

@@ -47,9 +47,12 @@ export default function Home() {
               {user == null ? "Se connecter" : "Accéder au dashboard"}
             </a>
 
-            <button className="border border-white/30 backdrop-blur-md px-6 py-3 rounded-xl font-medium hover:bg-white/10 transition">
-              Voir les résultats
-            </button>
+            <a
+              href="/palmares"
+              className="border border-white/30 backdrop-blur-md px-6 py-3 rounded-xl font-medium hover:bg-white/10 transition"
+            >
+              Palmares (etudiants)
+            </a>
           </div>
         </div>
       </section>

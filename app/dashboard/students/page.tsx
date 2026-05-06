@@ -97,7 +97,13 @@ export default function StudentTable() {
         </div>
 
         {/* TABLEAU */}
-        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+        <p className="p-4 mx-auto ">
+          Nombre d'etudiants:{" "}
+          <span className="text-semibold text-emerald-600">
+            {filteredStudents.length}
+          </span>
+        </p>
+        <div className="bg-white rounded-2xl mt-6 border shadow-sm overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b">

@@ -100,18 +100,18 @@ export default function Auth() {
                 />
               </div>
 
-              <Button
+              <button
                 type="submit"
-                className="w-full mt-4 bg-gray-600 hover:bg-gray-500"
+                className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition"
               >
                 {isLoginLoading ? (
                   <>
-                    <LoaderIcon className="animate-spin" />
+                    <LoaderIcon className="animate-spin mx-auto" />
                   </>
                 ) : (
                   <p>Login</p>
                 )}
-              </Button>
+              </button>
             </form>
           </div>
         </div>

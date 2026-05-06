@@ -14,6 +14,7 @@ import {
   saveResponsable,
   updateResponsableData,
 } from "@/app/neon/request";
+import { Button } from "@/components/ui/button";
 // Import des actions Neon
 export type Responsable = {
   uid: string;
@@ -142,11 +143,11 @@ export default function FilierePage() {
             placeholder="Nom de la filière"
             value={filiereNom}
             onChange={(e) => setFiliereNom(e.target.value)}
-            className="border p-2 rounded flex-1"
+            className="flex-1 p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
           />
           <button
             onClick={handleAddFiliere}
-            className="bg-green-600 text-white px-6 py-2 rounded"
+            className="w-sm bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition"
           >
             Ajouter
           </button>
@@ -159,7 +160,7 @@ export default function FilierePage() {
           <select
             value={selectedFiliereId}
             onChange={(e) => setSelectedFiliereId(e.target.value)}
-            className="border p-2 rounded"
+            className="w-full p-3 border rounded-xl bg-gray-50"
           >
             <option value="">Choisir une filière</option>
             {filieres.map((f) => (
@@ -172,31 +173,31 @@ export default function FilierePage() {
             placeholder="Nom prénom"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="border p-2 rounded"
+            className="flex-1 p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
           />
           <input
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="border p-2 rounded"
+            className="flex-1 p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
           />
           <input
             placeholder="Phone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="border p-2 rounded"
+            className="flex-1 p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
           />
           <input
             placeholder="Password"
             value={password}
             type="password"
             onChange={(e) => setPassword(e.target.value)}
-            className="border p-2 rounded"
+            className="flex-1 p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
           />
         </div>
         <button
           onClick={handleAddResponsable}
-          className="mt-4 bg-blue-600 text-white px-6 py-2 rounded"
+          className="w-full bg-blue-600 mt-4 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition"
         >
           Ajouter Responsable
         </button>
@@ -229,18 +230,20 @@ export default function FilierePage() {
                 <td className="px-4 py-3">{r.password}</td>
                 <td className="px-4 py-3 text-center">
                   <div className="flex justify-center gap-3">
-                    <button
+                    <Button
+                      size={"sm"}
+                      variant={"outline"}
                       onClick={() => setEditData(r)}
-                      className="text-blue-600"
                     >
                       Modifier
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size={"sm"}
+                      variant={"destructive"}
                       onClick={() => setDeleteData(r)}
-                      className="text-red-600"
                     >
                       Supprimer
-                    </button>
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -287,7 +290,7 @@ export default function FilierePage() {
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setEditData(null)}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition"
               >
                 Annuler
               </button>
