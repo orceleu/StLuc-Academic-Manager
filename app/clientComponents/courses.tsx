@@ -19,6 +19,8 @@ import {
 } from "@/app/neon/request";
 import { useRouter } from "next/navigation";
 import { GoArrowRight } from "react-icons/go";
+import { Button } from "@/components/ui/button";
+import { MdArrowBackIos } from "react-icons/md";
 
 export default function CourseManagementPage({
   filieres,
@@ -91,8 +93,21 @@ export default function CourseManagementPage({
 
   return (
     <div className=" mx-auto p-2 max-w-6xl md:p-6 space-y-16">
+      <Button
+        onClick={() => {
+          router.back();
+        }}
+        variant={"outline"}
+        className="my-2 mx-2 md:my-6"
+      >
+        <MdArrowBackIos />
+      </Button>
+
+      <p className="text-2xl font-semibold text-center my-2 md:my-6 underline">
+        Section Cours.
+      </p>
       {/* SECTION 1: CATALOGUE DES COURS */}
-      <section className="bg-white rounded-2xl border p-6 shadow-sm">
+      <section className="bg-white rounded-2xl border p-6 ">
         <div className="flex items-center gap-3 mb-6 border-b pb-4">
           <Book className="text-blue-600" />
           <h2 className="text-xl font-bold">1. Catalogue des Cours</h2>
@@ -106,8 +121,12 @@ export default function CourseManagementPage({
           />
           <button
             onClick={() => {
-              addCourse(newCourse);
-              setNewCourse("");
+              if (newCourse) {
+                addCourse(newCourse);
+                setNewCourse("");
+              } else {
+                alert("Vide");
+              }
             }}
             className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition"
           >

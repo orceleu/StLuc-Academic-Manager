@@ -14,6 +14,7 @@ import {
   X,
   AlertTriangle,
 } from "lucide-react";
+import { useAuth } from "./AuthContext";
 
 export default function AssignmentTable() {
   const [data, setData] = useState<any[]>([]);
@@ -24,6 +25,7 @@ export default function AssignmentTable() {
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
+  const { user, role, currentFiliere } = useAuth();
 
   // État pour la Modale de Confirmation
   const [showModal, setShowModal] = useState(false);
@@ -141,9 +143,11 @@ export default function AssignmentTable() {
                 <th className="p-4 text-xs font-bold text-gray-400 uppercase">
                   Salle
                 </th>
-                <th className="p-4 text-xs font-bold text-gray-400 uppercase text-right">
-                  Action
-                </th>
+                {role == "admin" && (
+                  <th className="p-4 text-xs font-bold text-gray-400 uppercase text-right">
+                    Action
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -200,17 +204,20 @@ export default function AssignmentTable() {
                         </span>
                       )}
                     </td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => {
-                          setItemToDelete(item.assignment_id);
-                          setShowModal(true);
-                        }}
-                        className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
+
+                    {role == "admin" && (
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => {
+                            setItemToDelete(item.assignment_id);
+                            setShowModal(true);
+                          }}
+                          className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}

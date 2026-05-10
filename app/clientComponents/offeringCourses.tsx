@@ -11,6 +11,7 @@ import {
   GraduationCap,
   Calendar,
 } from "lucide-react";
+import { useAuth } from "./AuthContext";
 
 export default function OfferingTable() {
   const [offerings, setOfferings] = useState<any[]>([]);
@@ -25,6 +26,7 @@ export default function OfferingTable() {
   const [showModal, setShowModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { user, role, currentFiliere } = useAuth();
 
   useEffect(() => {
     refreshData();
@@ -121,9 +123,11 @@ export default function OfferingTable() {
               <th className="p-4 text-xs font-bold text-gray-400 uppercase">
                 Coeff.
               </th>
-              <th className="p-4 text-xs font-bold text-gray-400 uppercase text-right">
-                Actions
-              </th>
+              {role == "admin" && (
+                <th className="p-4 text-xs font-bold text-gray-400 uppercase text-right">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -166,18 +170,20 @@ export default function OfferingTable() {
                       {o.coefficient}
                     </span>
                   </td>
-                  <td className="p-4 text-right">
-                    <button
-                      onClick={() => {
-                        setIdToDelete(o.offering_id);
-                        setShowModal(true);
-                        setErrorMessage(null);
-                      }}
-                      className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </td>
+                  {role == "admin" && (
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => {
+                          setIdToDelete(o.offering_id);
+                          setShowModal(true);
+                          setErrorMessage(null);
+                        }}
+                        className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}

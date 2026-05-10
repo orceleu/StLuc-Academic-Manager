@@ -13,6 +13,7 @@ import {
   saveTeacher,
   updateTeacherData,
 } from "@/app/neon/request";
+import { MdArrowBackIos } from "react-icons/md";
 export type Teacher = {
   uid: string;
 
@@ -111,8 +112,19 @@ export default function TeacherPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-2 md:p-6">
-      <h1 className="text-3xl font-bold mb-8">Gestion des Enseignants</h1>
+      <Button
+        onClick={() => {
+          router.back();
+        }}
+        variant={"outline"}
+        className="my-2 mx-2 md:my-6"
+      >
+        <MdArrowBackIos />
+      </Button>
 
+      <p className="text-2xl font-semibold text-center my-2 md:my-6 underline">
+        Gestion des Enseignants.
+      </p>
       {/* FORMULAIRE D'AJOUT */}
       <div className="bg-gray-100 p-6 rounded-lg mb-10">
         <h2 className="text-xl font-semibold mb-4">Ajouter Enseignant</h2>

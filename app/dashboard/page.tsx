@@ -200,7 +200,13 @@ export default function AdminOverview() {
 
           {/* COURS */}
           <div
-            onClick={() => router.push("/dashboard/cours")}
+            onClick={() => {
+              if (role == "teacher") {
+                router.push("/dashboard/cours/details");
+              } else {
+                router.push("/dashboard/cours");
+              }
+            }}
             className="group bg-white rounded-2xl p-5 border hover:shadow-lg transition cursor-pointer"
           >
             <div className="flex items-center justify-between mb-4">
@@ -209,8 +215,15 @@ export default function AdminOverview() {
             </div>
 
             <h2 className="text-lg font-semibold mb-1">Cours</h2>
+            {role == "teacher" ? (
+              <p className="text-sm text-gray-500 mb-3">
+                {" "}
+                Rechercher vos cours
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500 mb-3">Gérer les cours</p>
+            )}
 
-            <p className="text-sm text-gray-500 mb-3">Gérer les cours</p>
             <p className="text-sm">
               Total :{" "}
               <span className="font-bold text-green-600">{totalsCourses}</span>

@@ -19,6 +19,8 @@ import {
 } from "../neon/request";
 import { AcademicData } from "../dashboard/page";
 import RegisterStudentModal from "./addStudent";
+import { BsPeople } from "react-icons/bs";
+import { useAuth } from "./AuthContext";
 
 export default function SetupPage2() {
   const [years, setYears] = useState<any[]>([]);
@@ -40,6 +42,7 @@ export default function SetupPage2() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [sessionName, setSessionName] = useState("");
+  const { user, role, currentFiliere } = useAuth();
 
   const refreshData = async () => {
     setLoading(true);
@@ -105,38 +108,40 @@ export default function SetupPage2() {
   return (
     <div className=" mx-auto p-2 md:p-6 space-y-12">
       <header className="grid grid-cols-1 md:grid-cols-2 border-b pb-6 w-full ">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            {" "}
+        {role == "admin" && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              {" "}
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center w-full px-4 py-2 bg-violet-600 gap-2  text-white  rounded-lg font-medium hover:bg-indigo-700 transition shadow-sm"
+              >
+                <BsPeople size={18} /> Nouvel étudiant{" "}
+                {count !== null && `(${count})`}
+              </button>
+              {/* MODAL */}
+              <RegisterStudentModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                filieres={data.filieres}
+                sessions={data.sessions}
+                academicYears={data.years}
+              />
+            </div>{" "}
             <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center w-full px-4 py-2 bg-violet-600 gap-2  text-white  rounded-lg font-medium hover:bg-indigo-700 transition shadow-sm"
+              onClick={() => setShowYearModal(true)}
+              className="flex items-center  bg-indigo-600 gap-2  text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
             >
-              <Plus size={18} /> Nouvel étudiant{" "}
-              {count !== null && `(${count})`}
+              <Calendar size={18} /> Nouvelle Année
             </button>
-            {/* MODAL */}
-            <RegisterStudentModal
-              isOpen={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              filieres={data.filieres}
-              sessions={data.sessions}
-              academicYears={data.years}
-            />
-          </div>{" "}
-          <button
-            onClick={() => setShowYearModal(true)}
-            className="flex items-center  bg-indigo-600 gap-2  text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
-          >
-            <Calendar size={18} /> Nouvelle Année
-          </button>
-          <button
-            onClick={() => setShowSessionModal(true)}
-            className="flex items-center  bg-emerald-600 gap-2 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition"
-          >
-            <Plus size={18} /> Nouvelle Session
-          </button>
-        </div>
+            <button
+              onClick={() => setShowSessionModal(true)}
+              className="flex items-center  bg-emerald-600 gap-2 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition"
+            >
+              <Layers size={18} /> Nouvelle Session
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="grid md:grid-cols-2 gap-10">
@@ -188,13 +193,15 @@ export default function SetupPage2() {
                     Session {s.name}
                   </span>
                 </div>
-                <button
-                  onClick={() => handleDeleteSession(s.id)}
-                  className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                  title="Supprimer la session"
-                >
-                  <Trash2 size={20} />
-                </button>
+                {role == "admin" && (
+                  <button
+                    onClick={() => handleDeleteSession(s.id)}
+                    className="p-2 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                    title="Supprimer la session"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                )}
               </div>
             ))}
             {sessions.length === 0 && (

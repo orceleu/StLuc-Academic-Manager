@@ -1,19 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Filter, Calendar, BookOpen, Hash, User } from "lucide-react";
+import {
+  Search,
+  Filter,
+  Calendar,
+  BookOpen,
+  Hash,
+  User,
+  ArrowDownLeftFromCircle,
+  ArrowLeft,
+  Trash,
+} from "lucide-react";
 import { getDetailedStudents } from "@/app/neon/request";
 import GradesPage from "@/app/clientComponents/gradePalmares";
+import { Button } from "@/components/ui/button";
+import { MdArrowBackIos } from "react-icons/md";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/clientComponents/AuthContext";
 
 export default function StudentTable() {
   const [students, setStudents] = useState<any[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const router = useRouter();
   // États des filtres
   const [searchTerm, setSearchTerm] = useState("");
   const [filterYear, setFilterYear] = useState("");
   const [filterFiliere, setFilterFiliere] = useState("");
+  const { user, role, currentFiliere } = useAuth();
 
   useEffect(() => {
     loadStudents();
@@ -52,10 +67,28 @@ export default function StudentTable() {
   const uniqueFilieres = Array.from(
     new Set(students.map((s) => s.filiere_name).filter(Boolean)),
   );
-
+  if (!user)
+    return (
+      <>
+        <p className="text-center text-3xl p-10 text-red-500">Non authorisé</p>
+      </>
+    );
   return (
     <div className="max-w-6xl mx-auto">
       <div className=" space-y-6 ">
+        <Button
+          onClick={() => {
+            router.back();
+          }}
+          variant={"outline"}
+          className="my-2 mx-2 md:my-6"
+        >
+          <MdArrowBackIos />
+        </Button>
+
+        <p className="text-2xl font-semibold text-center my-2 md:my-6 underline">
+          Section étudiants.
+        </p>
         {/* BARRE DE FILTRES */}
         <div className="p-2 md:p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-2xl border shadow-sm">
@@ -125,6 +158,11 @@ export default function StudentTable() {
                     <th className="p-4 text-xs font-bold text-gray-500 uppercase">
                       Date
                     </th>
+                    {role == "admin" && (
+                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">
+                        Action
+                      </th>
+                    )}
                   </tr>
                 </thead>
 
@@ -140,7 +178,10 @@ export default function StudentTable() {
                     </tr>
                   ) : (
                     filteredStudents.map((s) => (
-                      <tr key={s.id} className="hover:bg-gray-50 transition">
+                      <tr
+                        key={s.id + Math.random()}
+                        className="hover:bg-gray-50 transition"
+                      >
                         <td className="p-4">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">
@@ -174,6 +215,13 @@ export default function StudentTable() {
                         <td className="p-4 text-sm text-gray-500">
                           {new Date(s.created_at).toLocaleDateString()}
                         </td>
+                        {role == "admin" && (
+                          <td className="p-4 text-sm text-gray-500">
+                            <Button variant={"destructive"}>
+                              <Trash />
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
@@ -189,7 +237,7 @@ export default function StudentTable() {
                 </div>
               ) : (
                 filteredStudents.map((s) => (
-                  <div key={s.id} className="p-4 space-y-3">
+                  <div key={s.id + Math.random()} className="p-4 space-y-3">
                     {/* Header */}
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">

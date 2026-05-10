@@ -21,6 +21,7 @@ import {
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "./AuthContext";
 export default function GradesPage() {
   const [rawData, setRawData] = useState<any>({
     students: [],
@@ -44,6 +45,9 @@ export default function GradesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [targetFiliereId, setTargetFiliereId] = useState("");
   const [allFilieres, setAllFilieres] = useState<any[]>([]);
+  const { user, role, currentFiliere } = useAuth();
+  // Stocke l'ID sous forme "enrollId-courseId" pour cibler précisément le bouton
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   useEffect(() => {
     async function loadFilters() {
       const s = await getSessions(); // API
@@ -349,6 +353,26 @@ export default function GradesPage() {
 
     setIsSaving(false);
   };
+  const handleUpdate = async (
+    enrollId: string,
+    courseId: string,
+    score: string,
+  ) => {
+    const uniqueId = `${enrollId}-${courseId}`;
+    setUpdatingId(uniqueId); // Active le loader
+
+    try {
+      const result = await updateGrade(enrollId, courseId, Number(score));
+      if (result.success) {
+        // Optionnel : Vous pouvez ajouter un toast de succès ici
+        await loadData(); // Rafraîchir les données locales si nécessaire
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setUpdatingId(null); // Désactive le loader
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -465,21 +489,22 @@ export default function GradesPage() {
               </option>
             ))}
           </select>
-
-          <button
-            onClick={() => {
-              setIsModalOpen(true);
-            }}
-            disabled={isSaving || filteredStudents.length === 0}
-            className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 transition-all "
-          >
-            {isSaving ? (
-              <Loader2 className="animate-spin" size={18} />
-            ) : (
-              <GraduationCap size={18} />
-            )}
-            Admis en 2ème année
-          </button>
+          {role == "admin" && (
+            <button
+              onClick={() => {
+                setIsModalOpen(true);
+              }}
+              disabled={isSaving || filteredStudents.length === 0}
+              className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 transition-all "
+            >
+              {isSaving ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                <GraduationCap size={18} />
+              )}
+              Admis en 2ème année
+            </button>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -597,23 +622,35 @@ export default function GradesPage() {
                                 )
                               }
                             />
-                            <button
-                              type="button"
-                              className="text-[10px] text-indigo-600 font-bold hover:underline"
+                            <Button
+                              variant={"ghost"}
+                              size="sm"
+                              disabled={
+                                updatingId ===
+                                `${student.enrollment_id}-${course.offering_id}`
+                              }
                               onClick={() => {
                                 const val = getCurrentScore(
                                   student.enrollment_id,
                                   course.offering_id,
                                 );
-                                updateGrade(
+                                handleUpdate(
                                   student.enrollment_id,
                                   course.offering_id,
-                                  Number(val),
+                                  val.toString(),
                                 );
                               }}
                             >
-                              Update
-                            </button>
+                              {updatingId ===
+                              `${student.enrollment_id}-${course.offering_id}` ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  En cours...
+                                </>
+                              ) : (
+                                "Update"
+                              )}
+                            </Button>
                           </div>
                         </td>
                       ))}

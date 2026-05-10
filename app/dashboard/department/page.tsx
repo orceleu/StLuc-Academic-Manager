@@ -15,6 +15,7 @@ import {
   updateResponsableData,
 } from "@/app/neon/request";
 import { Button } from "@/components/ui/button";
+import { MdArrowBackIos } from "react-icons/md";
 // Import des actions Neon
 export type Responsable = {
   uid: string;
@@ -134,7 +135,18 @@ export default function FilierePage() {
 
   return (
     <div className="max-w-6xl mx-auto p-2 md:p-6">
-      <h1 className="text-3xl font-bold mb-8">Gestion des Filières</h1>
+      <Button
+        onClick={() => {
+          router.back();
+        }}
+        variant={"outline"}
+        className="my-2 mx-2 md:my-6"
+      >
+        <MdArrowBackIos />
+      </Button>
+      <p className="text-2xl font-semibold text-center my-2 md:my-6 underline">
+        Gestion des Filières
+      </p>
       {/* BLOC AJOUT FILIERE */}
       <div className="bg-gray-100 p-6 rounded-lg mb-10">
         <h2 className="text-xl font-semibold mb-4">Ajouter Filière</h2>
