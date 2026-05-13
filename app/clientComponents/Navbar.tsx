@@ -26,7 +26,7 @@ export default function NavBar() {
   if (loading) {
     return (
       <div className="fixed top-0 w-full bg-white/80 backdrop-blur-md flex justify-center p-4 shadow-sm z-[60]">
-        <LoaderIcon className="animate-spin text-yellow-700" />
+        <LoaderIcon className="animate-spin" />
       </div>
     );
   }

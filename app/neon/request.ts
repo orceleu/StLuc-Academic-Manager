@@ -294,7 +294,7 @@ export async function addStudent(name: string, matricule: string) {
     };
   }
 }
-export async function registerAndEnrollStudent(formData: {
+/*export async function registerAndEnrollStudent(formData: {
   name: string;
   matricule: string;
   filiere_id: string;
@@ -342,7 +342,72 @@ export async function registerAndEnrollStudent(formData: {
       error: "Échec de l'inscription. Les données n'ont pas été enregistrées.",
     };
   }
+}*/
+export async function registerAndEnrollStudent(formData: {
+  nom: string;
+  prenom: string;
+  sexe: string;
+  matricule: string;
+  filiere_id: string;
+  academic_year_id: string;
+  session_id: string;
+}) {
+  const studentId = crypto.randomUUID();
+  const enrollmentId = crypto.randomUUID();
+
+  // Préparation des données
+  const fullName = `${formData.nom} ${formData.prenom}`.trim();
+  const cleanMatricule =
+    formData.matricule?.trim() === "" ? null : formData.matricule;
+  const sexe = formData.sexe; // "M" ou "F"
+
+  try {
+    // 1. Ouvrir la transaction
+    await sql`BEGIN`;
+
+    // 2. Création de l'étudiant
+    // Note : Assurez-vous que votre table 'students' possède une colonne 'sexe'
+    await sql`
+      INSERT INTO students (id, name, matricule, sexe)
+      VALUES (${studentId}, ${fullName}, ${cleanMatricule}, ${sexe})
+    `;
+
+    // 3. Création de l'enrôlement
+    await sql`
+      INSERT INTO enrollments (id, student_id, filiere_id, academic_year_id, session_id)
+      VALUES (${enrollmentId}, ${studentId}, ${formData.filiere_id}, ${formData.academic_year_id}, ${formData.session_id})
+    `;
+
+    // 4. Valider la transaction
+    await sql`COMMIT`;
+
+    revalidatePath("/admin/students");
+    return { success: true };
+  } catch (error: any) {
+    // 5. En cas d'erreur, annulation totale
+    await sql`ROLLBACK`;
+
+    console.error("Erreur Transaction:", error);
+
+    // Gestion des erreurs spécifiques
+    if (
+      error.message?.includes("students_matricule_key") ||
+      error.message?.includes("unique constraint")
+    ) {
+      return {
+        success: false,
+        error: "Ce matricule est déjà utilisé par un autre étudiant.",
+      };
+    }
+
+    return {
+      success: false,
+      error:
+        "Échec de l'inscription. Veuillez vérifier les informations et réessayer.",
+    };
+  }
 }
+
 export async function getTotalStudentsCount() {
   try {
     // La requête renvoie un tableau d'objets, ex: [{ count: "42" }]
@@ -1042,5 +1107,95 @@ export async function enrollStudentsInBulk(data: any[]) {
       success: false,
       error: "La base de données a refusé l'opération.",
     };
+  }
+}
+
+/*export async function getTeacherAssignments(teacherId: string) {
+  try {
+    const rows = await sql`
+      SELECT 
+        ca.id as assignment_id,
+        c.name as course_name,
+        f.name as filiere_name,
+        s.name as session_name,
+        co.coefficient,
+        -- On regroupe les horaires de la table course_schedules dans un tableau JSON
+        (
+          SELECT json_agg(json_build_object(
+            'day', cs.day_of_week,
+            'start', cs.start_time,
+            'end', cs.end_time,
+            'room', cs.room
+          ))
+          FROM course_schedules cs
+          WHERE cs.course_assignment_id = ca.id
+        ) as schedules
+      FROM course_assignments ca
+      JOIN course_offerings co ON ca.course_offering_id = co.id
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      JOIN sessions s ON co.session_id = s.id
+      WHERE ca.teacher_id = ${teacherId}
+    `;
+    return rows;
+  } catch (error) {
+    console.error("Erreur SQL:", error);
+    return [];
+  }
+}*/
+
+export async function getTeacherAssignments(teacherId: string) {
+  if (!teacherId) return [];
+
+  try {
+    const rows = await sql`
+      SELECT 
+        ca.id as assignment_id,
+        c.name as course_name,
+        f.name as filiere_name,
+        s.name as session_name,
+        ay.name as year_name,
+        co.coefficient,
+        -- Récupération des horaires depuis course_schedules
+        (
+          SELECT json_agg(json_build_object(
+            'day', cs.day_of_week,
+            'start', cs.start_time,
+            'end', cs.end_time,
+            'room', cs.room
+          ))
+          FROM course_schedules cs
+          WHERE cs.course_assignment_id = ca.id
+        ) as schedules
+      FROM course_assignments ca
+      JOIN course_offerings co ON ca.course_offering_id = co.id
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      JOIN sessions s ON co.session_id = s.id
+      JOIN academic_years ay ON co.academic_year_id = ay.id
+      WHERE ca.teacher_id = ${teacherId}
+      ORDER BY c.name ASC
+    `;
+    return rows;
+  } catch (error) {
+    console.error("Erreur SQL:", error);
+    return [];
+  }
+}
+export async function getTeacherCourseCount(teacherId: string) {
+  if (!teacherId) return 0;
+
+  try {
+    const rows = await sql`
+      SELECT COUNT(*)::int as total
+      FROM course_assignments
+      WHERE teacher_id = ${teacherId}
+    `;
+
+    // On retourne directement le nombre
+    return rows[0].total || 0;
+  } catch (error) {
+    console.error("Erreur lors du comptage des cours:", error);
+    return 0;
   }
 }

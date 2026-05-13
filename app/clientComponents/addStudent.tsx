@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus, X, Loader2, BookOpen, Calendar, Layers } from "lucide-react";
+import {
+  UserPlus,
+  X,
+  Loader2,
+  BookOpen,
+  Calendar,
+  Layers,
+  User,
+} from "lucide-react";
 import { registerAndEnrollStudent } from "../neon/request";
 
 interface Props {
@@ -21,7 +29,9 @@ export default function RegisterStudentModal({
 }: Props) {
   const [isPending, setIsPending] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
+    nom: "",
+    prenom: "",
+    sexe: "M", // Valeur par défaut
     matricule: "",
     filiere_id: "",
     academic_year_id: "",
@@ -34,11 +44,20 @@ export default function RegisterStudentModal({
     e.preventDefault();
     setIsPending(true);
 
-    const res = await registerAndEnrollStudent(formData);
+    // On concatène le nom et le prénom pour l'API si nécessaire,
+    // ou on envoie l'objet tel quel selon votre backend
+    const payload = {
+      ...formData,
+      name: `${formData.nom} ${formData.prenom}`.trim(),
+    };
+
+    const res = await registerAndEnrollStudent(payload);
     if (res.success) {
       onClose();
       setFormData({
-        name: "",
+        nom: "",
+        prenom: "",
+        sexe: "M",
         matricule: "",
         filiere_id: "",
         academic_year_id: "",
@@ -66,39 +85,92 @@ export default function RegisterStudentModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Section Étudiant */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 uppercase">
-                Nom de l'étudiant
-              </label>
-              <input
-                required
-                className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:border-indigo-500"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-              />
+          {/* Section Identité */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">
+                  Nom
+                </label>
+                <input
+                  required
+                  placeholder="Ex: Luma"
+                  className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:border-indigo-500"
+                  value={formData.nom}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nom: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">
+                  Prénom
+                </label>
+                <input
+                  required
+                  placeholder="Ex: Jean"
+                  className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:border-indigo-500"
+                  value={formData.prenom}
+                  onChange={(e) =>
+                    setFormData({ ...formData, prenom: e.target.value })
+                  }
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 uppercase">
-                Matricule{" "}
-                <span className="text-gray-300 font-normal">(Optionnel)</span>
-              </label>
-              <input
-                type="text"
-                placeholder="ex: ST-001"
-                className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:border-indigo-500"
-                value={formData.matricule}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    matricule: e.target.value.toUpperCase(),
-                  })
-                }
-                // Suppression de l'attribut required ici
-              />
+
+            <div className="grid grid-cols-2 gap-4 items-end">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">
+                  Sexe
+                </label>
+                <div className="flex gap-4 p-1 bg-gray-50 border rounded-lg">
+                  <label className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 cursor-pointer rounded-md has-[:checked]:bg-white has-[:checked]:text-indigo-600 has-[:checked]:shadow-sm transition-all text-sm font-medium text-gray-500">
+                    <input
+                      type="radio"
+                      name="sexe"
+                      value="M"
+                      className="hidden"
+                      checked={formData.sexe === "M"}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sexe: e.target.value })
+                      }
+                    />
+                    Masculin
+                  </label>
+                  <label className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 cursor-pointer rounded-md has-[:checked]:bg-white has-[:checked]:text-indigo-600 has-[:checked]:shadow-sm transition-all text-sm font-medium text-gray-500">
+                    <input
+                      type="radio"
+                      name="sexe"
+                      value="F"
+                      className="hidden"
+                      checked={formData.sexe === "F"}
+                      onChange={(e) =>
+                        setFormData({ ...formData, sexe: e.target.value })
+                      }
+                    />
+                    Féminin
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase">
+                  Matricule{" "}
+                  <span className="text-gray-300 font-normal">(Optionnel)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: ST-001"
+                  className="w-full p-2.5 bg-gray-50 border rounded-lg outline-none focus:border-indigo-500"
+                  value={formData.matricule}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      matricule: e.target.value.toUpperCase(),
+                    })
+                  }
+                />
+              </div>
             </div>
           </div>
 
@@ -113,6 +185,7 @@ export default function RegisterStudentModal({
               <select
                 required
                 className="w-full p-2.5 bg-white border rounded-lg outline-none focus:ring-2 focus:ring-indigo-100"
+                value={formData.filiere_id}
                 onChange={(e) =>
                   setFormData({ ...formData, filiere_id: e.target.value })
                 }
@@ -134,6 +207,7 @@ export default function RegisterStudentModal({
                 <select
                   required
                   className="w-full p-2.5 bg-white border rounded-lg outline-none"
+                  value={formData.academic_year_id}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -157,6 +231,7 @@ export default function RegisterStudentModal({
                 <select
                   required
                   className="w-full p-2.5 bg-white border rounded-lg outline-none"
+                  value={formData.session_id}
                   onChange={(e) =>
                     setFormData({ ...formData, session_id: e.target.value })
                   }

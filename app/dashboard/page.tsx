@@ -21,6 +21,7 @@ import {
   getAcademicYears,
   getFilieres,
   getSessions,
+  getTeacherCourseCount,
   getTotalCourses,
   getTotalResponsablesCount,
   getTotalStudentsCount,
@@ -52,7 +53,17 @@ export default function AdminOverview() {
     sessions: [],
     years: [],
   });
+  const [courseCount, setCourseCount] = useState(0);
 
+  useEffect(() => {
+    async function fetchCount() {
+      if (user?.uid) {
+        const count = await getTeacherCourseCount(user.uid);
+        setCourseCount(count);
+      }
+    }
+    fetchCount();
+  }, [user?.uid]);
   const usersRef = collection(db, "users");
 
   async function fetchTeacher() {
@@ -202,7 +213,7 @@ export default function AdminOverview() {
           <div
             onClick={() => {
               if (role == "teacher") {
-                router.push("/dashboard/cours/details");
+                router.push("/dashboard/cours/my-courses");
               } else {
                 router.push("/dashboard/cours");
               }
@@ -216,18 +227,23 @@ export default function AdminOverview() {
 
             <h2 className="text-lg font-semibold mb-1">Cours</h2>
             {role == "teacher" ? (
-              <p className="text-sm text-gray-500 mb-3">
-                {" "}
-                Rechercher vos cours
-              </p>
+              <p className="text-sm text-gray-500 mb-3"> Voir vos cours</p>
             ) : (
               <p className="text-sm text-gray-500 mb-3">Gérer les cours</p>
             )}
-
-            <p className="text-sm">
-              Total :{" "}
-              <span className="font-bold text-green-600">{totalsCourses}</span>
-            </p>
+            {role == "teacher" ? (
+              <p className="text-sm">
+                Mes cours (Total) :{" "}
+                <span className="font-bold text-green-600">{courseCount}</span>
+              </p>
+            ) : (
+              <p className="text-sm">
+                Total :{" "}
+                <span className="font-bold text-green-600">
+                  {totalsCourses}
+                </span>
+              </p>
+            )}
           </div>
         </div>
       </div>
