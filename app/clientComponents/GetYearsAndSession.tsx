@@ -42,7 +42,7 @@ export default function SetupPage2() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [sessionName, setSessionName] = useState("");
-  const { user, role, currentFiliere } = useAuth();
+  const { user, role } = useAuth();
 
   const refreshData = async () => {
     setLoading(true);

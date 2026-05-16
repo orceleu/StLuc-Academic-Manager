@@ -9,7 +9,7 @@ import {
   GraduationCap,
   Loader2,
   ClipboardList,
-  Clock, // Nouvelle icône
+  Clock,
 } from "lucide-react";
 import { useAuth } from "@/app/clientComponents/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export default function TeacherCoursesPage() {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const router = useRouter();
+
   useEffect(() => {
     async function loadData() {
       if (!user?.uid) return;
@@ -36,6 +37,12 @@ export default function TeacherCoursesPage() {
     }
     loadData();
   }, [user?.uid]);
+
+  // Fonction utilitaire pour formater proprement le niveau (ex: 1 -> 1ère Année, 2 -> 2ème Année)
+  const formatYearLevel = (level: number) => {
+    if (!level) return "";
+    return level === 1 ? "1ère Année" : `${level}ème Année`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -81,9 +88,17 @@ export default function TeacherCoursesPage() {
                   <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                     <BookOpen size={20} />
                   </div>
-                  <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full uppercase">
-                    Coeff: {item.coefficient}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-full uppercase">
+                      Coeff: {item.coefficient}
+                    </span>
+                    {/* Badge optionnel pour le niveau en haut à droite */}
+                    {item.year_level && (
+                      <span className="text-[10px] font-extrabold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">
+                        {formatYearLevel(item.year_level)}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <h3 className="text-lg font-bold text-gray-800 mb-3">
@@ -122,7 +137,15 @@ export default function TeacherCoursesPage() {
                 <div className="space-y-2 pt-2">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <GraduationCap size={14} className="text-gray-400" />
-                    <span className="font-medium">{item.filiere_name}</span>
+                    <span className="font-medium">
+                      {item.filiere_name}
+                      {item.year_level && (
+                        <span className="text-gray-400 font-normal">
+                          {" "}
+                          ({formatYearLevel(item.year_level)})
+                        </span>
+                      )}
+                    </span>
                   </div>
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     <div className="flex items-center gap-1">

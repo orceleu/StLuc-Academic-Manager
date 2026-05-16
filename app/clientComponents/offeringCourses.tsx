@@ -21,16 +21,26 @@ export default function OfferingTable() {
   const [search, setSearch] = useState("");
   const [filterYear, setFilterYear] = useState("");
   const [filterSession, setFilterSession] = useState("");
+  const [filterFiliere, setFilterFiliere] = useState("");
 
   // État Modale
   const [showModal, setShowModal] = useState(false);
   const [idToDelete, setIdToDelete] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { user, role, currentFiliere } = useAuth();
+
+  // Récupération du rôle et du nom de la filière depuis le contexte d'authentification
+  const { user, role, filiereName } = useAuth();
 
   useEffect(() => {
     refreshData();
   }, []);
+
+  // Force et verrouille la filière si l'utilisateur est un responsable
+  useEffect(() => {
+    if (role === "responsable" && filiereName) {
+      setFilterFiliere(filiereName);
+    }
+  }, [role, filiereName]);
 
   const refreshData = async () => {
     setLoading(true);
@@ -51,7 +61,7 @@ export default function OfferingTable() {
     }
   };
 
-  // Filtrage
+  // Filtrage mis à jour avec la filière
   const filtered = offerings.filter((o) => {
     const matchSearch =
       o.course_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -59,29 +69,58 @@ export default function OfferingTable() {
     const matchYear = filterYear === "" || o.year_name === filterYear;
     const matchSession =
       filterSession === "" || o.session_name === filterSession;
-    return matchSearch && matchYear && matchSession;
+    const matchFiliere =
+      filterFiliere === "" ||
+      o.filiere_name?.toLowerCase() === filterFiliere.toLowerCase();
+
+    return matchSearch && matchYear && matchSession && matchFiliere;
   });
 
   const years = Array.from(new Set(offerings.map((o) => o.year_name)));
   const sessions = Array.from(new Set(offerings.map((o) => o.session_name)));
+  const filieres = Array.from(
+    new Set(offerings.map((o) => o.filiere_name).filter(Boolean)),
+  );
 
   return (
     <div className="space-y-6">
       {/* --- FILTRES --- */}
       <p className="text-3xl text-center m-10">Cours</p>
-      <div className="bg-white p-4 rounded-2xl border shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="relative md:col-span-2">
+      <div className="bg-white p-4 rounded-2xl border shadow-sm grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="relative md:col-span-1">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             size={18}
           />
           <input
             type="text"
-            placeholder="Rechercher un cours ou une filière..."
+            placeholder="Rechercher..."
             className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-emerald-100 transition text-sm"
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {/* Sélection de filière restreinte au responsable ou libre pour l'admin */}
+        <select
+          className="p-2.5 bg-gray-50 border rounded-xl outline-none text-sm font-medium disabled:bg-gray-100 disabled:text-gray-400"
+          value={filterFiliere}
+          onChange={(e) => setFilterFiliere(e.target.value)}
+          disabled={role === "responsable"}
+        >
+          {role !== "responsable" ? (
+            <>
+              <option value="">Toutes les filières</option>
+              {filieres.map((f: any) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </>
+          ) : (
+            <option value={filiereName || ""}>{filiereName}</option>
+          )}
+        </select>
+
         <select
           className="p-2.5 bg-gray-50 border rounded-xl outline-none text-sm"
           onChange={(e) => setFilterYear(e.target.value)}
@@ -93,6 +132,7 @@ export default function OfferingTable() {
             </option>
           ))}
         </select>
+
         <select
           className="p-2.5 bg-gray-50 border rounded-xl outline-none text-sm"
           onChange={(e) => setFilterSession(e.target.value)}
@@ -107,7 +147,7 @@ export default function OfferingTable() {
       </div>
 
       {/* --- TABLEAU --- */}
-      <div className="bg-white rounded-2xl border overflow-x-auto  max-h-[70vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl border overflow-x-auto max-h-[70vh] overflow-y-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50/50 border-b">
@@ -123,7 +163,7 @@ export default function OfferingTable() {
               <th className="p-4 text-xs font-bold text-gray-400 uppercase">
                 Coeff.
               </th>
-              {role == "admin" && (
+              {role === "admin" && (
                 <th className="p-4 text-xs font-bold text-gray-400 uppercase text-right">
                   Actions
                 </th>
@@ -138,6 +178,15 @@ export default function OfferingTable() {
                   className="p-10 text-center text-gray-400 italic"
                 >
                   Chargement des offres...
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="p-10 text-center text-gray-400 italic"
+                >
+                  Aucun cours trouvé.
                 </td>
               </tr>
             ) : (
@@ -170,7 +219,7 @@ export default function OfferingTable() {
                       {o.coefficient}
                     </span>
                   </td>
-                  {role == "admin" && (
+                  {role === "admin" && (
                     <td className="p-4 text-right">
                       <button
                         onClick={() => {

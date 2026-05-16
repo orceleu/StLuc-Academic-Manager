@@ -81,7 +81,7 @@ export async function createResponsable(data: ResponsableInput) {
     };
   }
 }
-export async function getUserRoleAndFiliere(uid: string) {
+/*export async function getUserRoleAndFiliere(uid: string) {
   try {
     // IMPORTANT : Pas de guillemets autour de ${uid}
     // On fait une jointure pour récupérer la filière si l'utilisateur est un responsable
@@ -108,6 +108,51 @@ export async function getUserRoleAndFiliere(uid: string) {
     console.error("Erreur fetch role Neon:", error);
     return null;
   }
+}*/
+
+export async function getUserRoleAndFiliere(uid: string) {
+  try {
+    // Jointure avec responsables et filieres pour récupérer toutes les informations nécessaires
+    const result = await sql`
+      SELECT 
+        u.role, 
+        u.name AS user_name,
+        r.filiere_id,
+        f.name AS filiere_name,
+        f.duration_years
+      FROM users u
+      LEFT JOIN responsables r ON u.id = r.user_id
+      LEFT JOIN filieres f ON r.filiere_id = f.id
+      WHERE u.id = ${uid}
+      LIMIT 1
+    `;
+
+    if (!result || result.length === 0) {
+      console.log("Aucun utilisateur trouvé pour l'UID:", uid);
+      return null;
+    }
+
+    const row = result[0];
+
+    // Logique : si admin -> "Accès Total", sinon le nom de la filière (ou null)
+    let filiereNameResult = null;
+    if (row.role === "admin") {
+      filiereNameResult = "Accès Total";
+    } else if (row.role === "responsable") {
+      filiereNameResult = row.filiere_name || "Aucune filière assignée";
+    }
+
+    return {
+      role: row.role,
+      userName: row.user_name,
+      filiereId: row.filiere_id || null,
+      filiereName: filiereNameResult,
+      durationYears: row.duration_years || null,
+    };
+  } catch (error) {
+    console.error("Erreur fetch role Neon:", error);
+    return null;
+  }
 }
 // Fetch Filieres
 export async function getFilieres() {
@@ -126,9 +171,17 @@ export async function getResponsables() {
 }
 
 // Add Filiere
-export async function createFiliere(name: string) {
+/*export async function createFiliere(name: string) {
   const id = uuidv4();
   await sql`INSERT INTO filieres (id, name) VALUES (${id}, ${name})`;
+}*/
+// Modifié pour accepter le nombre d'années
+export async function createFiliere(name: string, durationYears: number) {
+  const id = uuidv4();
+  await sql`
+    INSERT INTO filieres (id, name, duration_years) 
+    VALUES (${id}, ${name}, ${durationYears})
+  `;
 }
 
 // Add Responsable (SQL side)
@@ -494,11 +547,12 @@ export async function addCourseOffering(data: {
   year_id: string;
   session_id: string;
   coefficient: number;
+  year_level: number;
 }) {
   const id = crypto.randomUUID();
   await sql`
-    INSERT INTO course_offerings (id, course_id, filiere_id, academic_year_id, session_id, coefficient)
-    VALUES (${id}, ${data.course_id}, ${data.filiere_id}, ${data.year_id}, ${data.session_id}, ${data.coefficient})
+    INSERT INTO course_offerings (id, course_id, filiere_id, academic_year_id, session_id, coefficient, year_level)
+    VALUES (${id}, ${data.course_id}, ${data.filiere_id}, ${data.year_id}, ${data.session_id}, ${data.coefficient}, ${data.year_level})
   `;
   revalidatePath("/admin/courses");
 }
@@ -525,7 +579,7 @@ export async function getCourses() {
     return []; // Retourne un tableau vide en cas d'erreur pour éviter le crash du .map()
   }
 }
-export async function getCourseOfferings() {
+/*export async function getCourseOfferings() {
   try {
     const offerings = await sql`
       SELECT 
@@ -549,8 +603,40 @@ export async function getCourseOfferings() {
     // Retourne un tableau vide pour éviter l'erreur .map() sur undefined
     return [];
   }
-}
+}*/
 // Dans ton fichier d'actions/requêtes
+
+export async function getCourseOfferings() {
+  try {
+    const offerings = await sql`
+      SELECT 
+        co.id,
+        co.coefficient,
+        co.year_level,
+        CASE 
+          WHEN co.year_level = 1 THEN '1ère Année'
+          ELSE co.year_level || 'ème Année'
+        END AS year_level_name, 
+        c.name AS course_name,
+        f.name AS filiere_name,
+        ay.name AS year_name,
+        s.name AS session_name
+      FROM course_offerings co
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      JOIN academic_years ay ON co.academic_year_id = ay.id
+      JOIN sessions s ON co.session_id = s.id
+      ORDER BY ay.name DESC, f.name ASC, co.year_level ASC, c.name ASC
+    `;
+
+    return offerings;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des offres de cours:", error);
+    // Retourne un tableau vide pour éviter l'erreur .map() sur undefined
+    return [];
+  }
+}
+
 export async function getTeachers2(userFiliere?: string) {
   // Le '?' rend l'argument optionnel
 
@@ -832,7 +918,7 @@ export async function getFullSchedules() {
     return [];
   }
 }
-export async function getAssignmentsWithSchedules() {
+/*export async function getAssignmentsWithSchedules() {
   try {
     return await sql`
       SELECT 
@@ -855,6 +941,40 @@ export async function getAssignmentsWithSchedules() {
       JOIN sessions s ON co.session_id = s.id
       LEFT JOIN course_schedules sch ON sch.course_assignment_id = a.id
       ORDER BY ay.name DESC, f.name ASC, sch.day_of_week ASC
+    `;
+  } catch (error) {
+    console.error("Erreur SQL assignments:", error);
+    return [];
+  }
+}*/
+export async function getAssignmentsWithSchedules() {
+  try {
+    return await sql`
+      SELECT 
+        a.id as assignment_id,
+        u.name as teacher_name,
+        c.name as course_name,
+        f.name as filiere_name,
+        co.year_level, 
+        CASE 
+          WHEN co.year_level = 1 THEN '1ère Année'
+          ELSE co.year_level || 'ème Année'
+        END as year_level_name, 
+        ay.name as year_name,
+        s.name as session_name,
+        sch.day_of_week,
+        sch.start_time,
+        sch.end_time,
+        sch.room
+      FROM course_assignments a
+      JOIN users u ON a.teacher_id = u.id
+      JOIN course_offerings co ON a.course_offering_id = co.id
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      JOIN academic_years ay ON co.academic_year_id = ay.id
+      JOIN sessions s ON co.session_id = s.id
+      LEFT JOIN course_schedules sch ON sch.course_assignment_id = a.id
+      ORDER BY ay.name DESC, f.name ASC, co.year_level ASC, sch.day_of_week ASC
     `;
   } catch (error) {
     console.error("Erreur SQL assignments:", error);
@@ -1144,6 +1264,44 @@ export async function enrollStudentsInBulk(data: any[]) {
   }
 }*/
 
+/*export async function getTeacherAssignments(teacherId: string) {
+  if (!teacherId) return [];
+
+  try {
+    const rows = await sql`
+      SELECT 
+        ca.id as assignment_id,
+        c.name as course_name,
+        f.name as filiere_name,
+        s.name as session_name,
+        ay.name as year_name,
+        co.coefficient,
+        -- Récupération des horaires depuis course_schedules
+        (
+          SELECT json_agg(json_build_object(
+            'day', cs.day_of_week,
+            'start', cs.start_time,
+            'end', cs.end_time,
+            'room', cs.room
+          ))
+          FROM course_schedules cs
+          WHERE cs.course_assignment_id = ca.id
+        ) as schedules
+      FROM course_assignments ca
+      JOIN course_offerings co ON ca.course_offering_id = co.id
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      JOIN sessions s ON co.session_id = s.id
+      JOIN academic_years ay ON co.academic_year_id = ay.id
+      WHERE ca.teacher_id = ${teacherId}
+      ORDER BY c.name ASC
+    `;
+    return rows;
+  } catch (error) {
+    console.error("Erreur SQL:", error);
+    return [];
+  }
+}*/
 export async function getTeacherAssignments(teacherId: string) {
   if (!teacherId) return [];
 
@@ -1156,6 +1314,7 @@ export async function getTeacherAssignments(teacherId: string) {
         s.name as session_name,
         ay.name as year_name,
         co.coefficient,
+        co.year_level, -- Ajout du niveau d'année
         -- Récupération des horaires depuis course_schedules
         (
           SELECT json_agg(json_build_object(
@@ -1197,5 +1356,133 @@ export async function getTeacherCourseCount(teacherId: string) {
   } catch (error) {
     console.error("Erreur lors du comptage des cours:", error);
     return 0;
+  }
+}
+// Récupérer les cours assignés avec filtre par filière
+export async function getTeacherPalmares(
+  teacherId: string,
+  filiereId?: string,
+) {
+  try {
+    const rows = await sql`
+      SELECT 
+        ca.id as assignment_id,
+        c.name as course_name,
+        f.id as filiere_id,
+        f.name as filiere_name,
+        s.name as session_name,
+        (SELECT COUNT(*) FROM users WHERE role = 'student') as student_count -- À ajuster selon votre table d'inscriptions
+      FROM course_assignments ca
+      JOIN course_offerings co ON ca.course_offering_id = co.id
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      JOIN sessions s ON co.session_id = s.id
+      WHERE ca.teacher_id = ${teacherId}
+      AND (${filiereId} IS NULL OR f.id = ${filiereId} OR ${filiereId} = '')
+    `;
+    return rows;
+  } catch (error) {
+    return [];
+  }
+}
+export async function getPalmaresDataTeacher(
+  sessionId: string,
+  yearId: string,
+) {
+  try {
+    // 1. Récupérer tous les étudiants inscrits pour cette session/année
+    const students = await sql`
+      SELECT 
+        e.id as enrollment_id,
+        s.id as student_id,
+        s.name as student_name,
+        f.name as filiere_name,
+        f.id as filiere_id
+      FROM enrollments e
+      JOIN students s ON e.student_id = s.id
+      JOIN filieres f ON e.filiere_id = f.id
+      WHERE e.session_id = ${sessionId} 
+      AND e.academic_year_id = ${yearId}
+      ORDER BY s.name ASC
+    `;
+
+    // 2. Récupérer tous les cours offerts ET l'ID du prof assigné (si présent)
+    // C'est ici que l'on récupère le teacher_id pour le frontend
+    const courses = await sql`
+      SELECT 
+        co.id as offering_id,
+        c.name as course_name,
+        co.coefficient,
+        f.name as filiere_name,
+        ca.teacher_id -- Crucial pour votre test canEdit
+      FROM course_offerings co
+      JOIN courses c ON co.course_id = c.id
+      JOIN filieres f ON co.filiere_id = f.id
+      LEFT JOIN course_assignments ca ON ca.course_offering_id = co.id
+      WHERE co.session_id = ${sessionId} 
+      AND co.academic_year_id = ${yearId}
+    `;
+
+    // 3. Récupérer les notes
+    const grades = await sql`
+      SELECT 
+        enrollment_id, 
+        course_offering_id, 
+        score, 
+        created_at as updated_at
+      FROM grades
+    `;
+
+    return { students, courses, grades };
+  } catch (error) {
+    console.error("Erreur Palmarès:", error);
+    return { students: [], courses: [], grades: [] };
+  }
+}
+
+// Fonction de mise à jour sécurisée
+export async function updateGradeTeacher(
+  enrollId: string,
+  offId: string,
+  score: number,
+  userId: string,
+) {
+  try {
+    // On vérifie en SQL si l'user est admin OU s'il est le prof assigné
+    await sql`
+      INSERT INTO grades (id, enrollment_id, course_offering_id, score)
+      VALUES (gen_random_uuid(), ${enrollId}, ${offId}, ${score})
+      ON CONFLICT (enrollment_id, course_offering_id) 
+      DO UPDATE SET score = EXCLUDED.score
+      WHERE 
+        EXISTS (SELECT 1 FROM users WHERE id = ${userId} AND role = 'admin')
+        OR 
+        EXISTS (SELECT 1 FROM course_assignments WHERE course_offering_id = ${offId} AND teacher_id = ${userId})
+    `;
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Non autorisé ou erreur SQL" };
+  }
+}
+export async function getFiliereByResponsable(userId: string) {
+  try {
+    // On utilise un tableau destructuré [filiere] car un responsable ne gère généralement qu'une filière
+    const [filiere] = await sql`
+      SELECT 
+        f.id,
+        f.name,
+        f.duration_years
+      FROM filieres f
+      JOIN responsables r ON f.id = r.filiere_id
+      WHERE r.user_id = ${userId}
+    `;
+
+    return filiere || null; // Retourne la filière ou null si l'utilisateur n'est responsable d'aucune filière
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération de la filière du responsable:",
+      error,
+    );
+    return null;
   }
 }

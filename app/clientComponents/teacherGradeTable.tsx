@@ -24,7 +24,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "../clientComponents/AuthContext";
-export default function GradesPage() {
+export default function GradesPageTeachers() {
   const [rawData, setRawData] = useState<any>({
     students: [],
     courses: [],

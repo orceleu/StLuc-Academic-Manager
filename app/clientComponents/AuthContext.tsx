@@ -8,38 +8,51 @@ import {
   ReactNode,
 } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "../firebase/config"; // On garde Firebase pour l'Auth
+import { auth } from "../firebase/config";
 import { getUserRoleAndFiliere } from "../neon/request";
 
 type AuthContextType = {
   user: User | null;
   role: string | null;
-  currentFiliere: string | null;
+  userName: string | null;
+  currentFiliereId: string | null;
+  filiereName: string | null; // Contient "Accès Total" ou le nom de la filière
+  durationYears: number | null;
   loading: boolean;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   role: null,
-  currentFiliere: null,
+  userName: null,
+  currentFiliereId: null,
+  filiereName: null,
+  durationYears: null,
   loading: true,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
-  const [currentFiliere, setCurrentFiliere] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [currentFiliereId, setCurrentFiliereId] = useState<string | null>(null);
+  const [filiereName, setFiliereName] = useState<string | null>(null);
+  const [durationYears, setDurationYears] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Remplacement de fetchRole pour utiliser Neon via la Server Action
   const fetchRoleFromNeon = async (uid: string) => {
     try {
       const data = await getUserRoleAndFiliere(uid);
 
       if (data) {
         setRole(data.role);
-        setCurrentFiliere(data.filiere);
-        console.log(data.role);
+        setUserName(data.userName);
+        setCurrentFiliereId(data.filiereId);
+        setFiliereName(data.filiereName);
+        setDurationYears(data.durationYears);
+        console.log(
+          `Profil chargé : ${data.userName} [${data.role}] -> ${data.filiereName}`,
+        );
       }
     } catch (err) {
       console.error("Erreur lors de la récupération du profil Neon:", err);
@@ -51,11 +64,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(currentUser);
 
       if (currentUser) {
-        // Firebase donne l'UID, on va chercher le reste dans Neon
         await fetchRoleFromNeon(currentUser.uid);
       } else {
+        // Réinitialisation complète en cas de déconnexion
         setRole(null);
-        setCurrentFiliere(null);
+        setUserName(null);
+        setCurrentFiliereId(null);
+        setFiliereName(null);
+        setDurationYears(null);
       }
 
       setLoading(false);
@@ -65,7 +81,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, currentFiliere }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        role,
+        userName,
+        currentFiliereId,
+        filiereName,
+        durationYears,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

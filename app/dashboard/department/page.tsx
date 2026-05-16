@@ -16,30 +16,24 @@ import {
 } from "@/app/neon/request";
 import { Button } from "@/components/ui/button";
 import { MdArrowBackIos } from "react-icons/md";
-// Import des actions Neon
+
 export type Responsable = {
   uid: string;
-
   name: string;
-
   email: string;
-
   password: string;
-
   phone: string;
-
   filiere: string;
-
   role: string;
 };
 
 export type Filiere = {
   id?: string;
-
   nom: string;
-
   type: string;
+  duration_years: number; // Ajouté au type
 };
+
 export default function FilierePage() {
   const [responsables, setResponsables] = useState<any[]>([]);
   const [filieres, setFilieres] = useState<any[]>([]);
@@ -53,6 +47,7 @@ export default function FilierePage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [filiereNom, setFiliereNom] = useState("");
+  const [filiereAnnee, setFiliereAnnee] = useState<number>(3); // État ajouté (par défaut 3 ans)
 
   const router = useRouter();
   const { role } = useAuth();
@@ -68,10 +63,12 @@ export default function FilierePage() {
     setResponsables(r);
   }
 
+  // Modifié pour passer la durée au serveur
   async function handleAddFiliere() {
     if (!filiereNom) return;
-    await createFiliere(filiereNom);
+    await createFiliere(filiereNom, filiereAnnee);
     setFiliereNom("");
+    setFiliereAnnee(3); // Reset à la valeur par défaut
     refreshData();
   }
 
@@ -79,9 +76,7 @@ export default function FilierePage() {
     if (!selectedFiliereId) return alert("Choisissez une filière");
 
     try {
-      // 1. Création Auth Firebase
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      // 2. Sauvegarde Neon via Server Action
       await saveResponsable({
         uid: cred.user.uid,
         name,
@@ -91,7 +86,6 @@ export default function FilierePage() {
         filiereId: selectedFiliereId,
       });
 
-      // Reset
       setSelectedFiliereId("");
       setName("");
       setEmail("");
@@ -105,29 +99,19 @@ export default function FilierePage() {
 
   async function handleUpdate() {
     if (!editData) return;
-
-    // L'erreur dit qu'il faut 3 arguments : (uid, name, phone)
-    await updateResponsableData(
-      editData.id, // 1er argument : uid
-      editData.name, // 2ème argument : name
-      editData.phone, // 3ème argument : phone
-    );
-
+    await updateResponsableData(editData.id, editData.name, editData.phone);
     setEditData(null);
     refreshData();
   }
 
-  // Fonction de suppression
   async function handleDelete() {
     if (!deleteData) return;
-
-    await deleteUser(deleteData.id); // Utilise l'ID stocké dans deleteData
-
-    setDeleteData(null); // Ferme la modale
-    refreshData(); // Recharge la liste
+    await deleteUser(deleteData.id);
+    setDeleteData(null);
+    refreshData();
   }
+
   if (role !== "admin") {
-    // Garde ton code de redirection existant...
     return (
       <p className="text-center font-bold text-red-600 p-25">Non autorisé</p>
     );
@@ -136,9 +120,7 @@ export default function FilierePage() {
   return (
     <div className="max-w-6xl mx-auto p-2 md:p-6">
       <Button
-        onClick={() => {
-          router.back();
-        }}
+        onClick={() => router.back()}
         variant={"outline"}
         className="my-2 mx-2 md:my-6"
       >
@@ -147,24 +129,35 @@ export default function FilierePage() {
       <p className="text-2xl font-semibold text-center my-2 md:my-6 underline">
         Gestion des Filières
       </p>
-      {/* BLOC AJOUT FILIERE */}
+
+      {/* BLOC AJOUT FILIERE (Modifié pour inclure la durée) */}
       <div className="bg-gray-100 p-6 rounded-lg mb-10">
         <h2 className="text-xl font-semibold mb-4">Ajouter Filière</h2>
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <input
             placeholder="Nom de la filière"
             value={filiereNom}
             onChange={(e) => setFiliereNom(e.target.value)}
             className="flex-1 p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100"
           />
+          <select
+            value={filiereAnnee}
+            onChange={(e) => setFiliereAnnee(Number(e.target.value))}
+            className="p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-100 min-w-[150px]"
+          >
+            <option value={1}>1 An</option>
+            <option value={2}>2 Ans</option>
+            <option value={3}>3 Ans</option>
+          </select>
           <button
             onClick={handleAddFiliere}
-            className="w-sm bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition"
+            className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition whitespace-nowrap"
           >
             Ajouter
           </button>
         </div>
       </div>
+
       {/* BLOC AJOUT RESPONSABLE */}
       <div className="bg-gray-100 p-6 rounded-lg mb-10">
         <h2 className="text-xl font-semibold mb-4">Ajouter Responsable</h2>
@@ -177,7 +170,7 @@ export default function FilierePage() {
             <option value="">Choisir une filière</option>
             {filieres.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.name}
+                {f.name} {f.duration_years ? `(${f.duration_years} ans)` : ""}
               </option>
             ))}
           </select>
@@ -214,8 +207,9 @@ export default function FilierePage() {
           Ajouter Responsable
         </button>
       </div>
-      {/* TABLEAU (Apparence conservée) */}
-      <div className="overflow-x-auto  max-h-[70vh] overflow-y-auto">
+
+      {/* TABLEAU */}
+      <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
         <table className="w-full border border-gray-200 rounded-lg overflow-hidden">
           <thead className="bg-gray-100 text-gray-700 text-sm uppercase">
             <tr>
@@ -234,7 +228,8 @@ export default function FilierePage() {
                 className={`border-t ${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
               >
                 <td className="px-4 py-3 text-center font-medium">
-                  {r.filiere_name}
+                  {r.filiere_name}{" "}
+                  {r.duration_years ? `(${r.duration_years} ans)` : ""}
                 </td>
                 <td className="px-4 py-3">{r.name}</td>
                 <td className="px-4 py-3">{r.email}</td>
@@ -263,13 +258,14 @@ export default function FilierePage() {
           </tbody>
         </table>
       </div>
+
+      {/* MODALE MODIFIER */}
       {editData && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">
               Modifier le Responsable
             </h2>
-
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -283,7 +279,6 @@ export default function FilierePage() {
                   }
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Téléphone
@@ -298,11 +293,10 @@ export default function FilierePage() {
                 />
               </div>
             </div>
-
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setEditData(null)}
-                className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition"
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
               >
                 Annuler
               </button>
@@ -316,6 +310,8 @@ export default function FilierePage() {
           </div>
         </div>
       )}
+
+      {/* MODALE SUPPRIMER */}
       {deleteData && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center">
@@ -335,7 +331,6 @@ export default function FilierePage() {
                 />
               </svg>
             </div>
-
             <h2 className="text-xl font-bold text-gray-800 mb-2">
               Supprimer ?
             </h2>
@@ -344,7 +339,6 @@ export default function FilierePage() {
               <strong>{deleteData.name}</strong> ? Cette action est
               irréversible.
             </p>
-
             <div className="flex flex-col gap-2">
               <button
                 onClick={handleDelete}
@@ -361,7 +355,7 @@ export default function FilierePage() {
             </div>
           </div>
         </div>
-      )}{" "}
+      )}
     </div>
   );
 }

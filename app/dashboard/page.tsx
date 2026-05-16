@@ -36,7 +36,15 @@ export interface AcademicData {
 
 export default function AdminOverview() {
   const router = useRouter();
-  const { user, role, loading, currentFiliere } = useAuth();
+  const {
+    user,
+    role,
+    loading,
+    currentFiliereId,
+    durationYears,
+    userName,
+    filiereName,
+  } = useAuth();
 
   const [totalsresponsables, setTotaleResponsables] = useState<number | null>(
     null,
@@ -132,7 +140,13 @@ export default function AdminOverview() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
             <p className="text-gray-500 text-sm mt-1">
+              <span className="font-semibold">{userName}</span>
+            </p>
+            <p className="text-gray-500 text-sm mt-1">
               Rôle : <span className="font-semibold">{role}</span>
+            </p>
+            <p className="text-gray-500 text-sm mt-1">
+              <span className="font-semibold">{filiereName}</span>
             </p>
           </div>
         </div>

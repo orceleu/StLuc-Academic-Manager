@@ -25,7 +25,9 @@ export default function AssignmentTable() {
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
-  const { user, role, currentFiliere } = useAuth();
+  const [selectedFiliere, setSelectedFiliere] = useState("");
+
+  const { user, role, filiereName } = useAuth();
 
   // État pour la Modale de Confirmation
   const [showModal, setShowModal] = useState(false);
@@ -34,6 +36,13 @@ export default function AssignmentTable() {
   useEffect(() => {
     refreshData();
   }, []);
+
+  // Forcer et verrouiller la filière si l'utilisateur est un responsable
+  useEffect(() => {
+    if (role === "responsable" && filiereName) {
+      setSelectedFiliere(filiereName);
+    }
+  }, [role, filiereName]);
 
   const refreshData = async () => {
     setLoading(true);
@@ -51,7 +60,7 @@ export default function AssignmentTable() {
     }
   };
 
-  // Logique de filtrage
+  // Logique de filtrage incluant la filière
   const filteredData = data.filter((item) => {
     const matchSearch =
       item.teacher_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -60,33 +69,62 @@ export default function AssignmentTable() {
     const matchDay = selectedDay === "" || item.day_of_week === selectedDay;
     const matchYear = selectedYear === "" || item.year_name === selectedYear;
 
+    // Filtre de Filière (Sensible à la casse ou partiel selon la structure de ta DB)
+    const matchFiliere =
+      selectedFiliere === "" ||
+      item.filiere_name?.toLowerCase() === selectedFiliere.toLowerCase();
+
     // Filtre Heure : affiche les cours qui commencent à ou après l'heure choisie
     const matchTime =
       selectedTime === "" ||
       (item.start_time && item.start_time >= selectedTime);
 
-    return matchSearch && matchDay && matchYear && matchTime;
+    return matchSearch && matchDay && matchYear && matchTime && matchFiliere;
   });
 
   const uniqueYears = Array.from(new Set(data.map((item) => item.year_name)));
+  const uniqueFilieres = Array.from(
+    new Set(data.map((item) => item.filiere_name).filter(Boolean)),
+  );
 
   return (
     <div className="space-y-4 ">
       {/* --- BARRE DE FILTRES --- */}
       <p className="text-3xl text-center m-10">Horaire & affectation</p>
       <div className="bg-white p-4 rounded-2xl border shadow-sm grid grid-cols-1 md:grid-cols-5 gap-3">
-        <div className="relative col-span-1 md:col-span-2">
+        <div className="relative col-span-1 md:col-span-1">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             size={18}
           />
           <input
             type="text"
-            placeholder="Rechercher un prof ou un cours..."
+            placeholder="Rechercher..."
             className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border rounded-xl outline-none focus:ring-2 focus:ring-orange-100 transition text-sm"
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {/* Sélecteur de Filière Restreint ou Disponible */}
+        <select
+          className="p-2.5 bg-gray-50 border rounded-xl outline-none text-sm font-medium disabled:bg-gray-100 disabled:text-gray-400"
+          value={selectedFiliere}
+          onChange={(e) => setSelectedFiliere(e.target.value)}
+          disabled={role === "responsable"}
+        >
+          {role !== "responsable" ? (
+            <>
+              <option value="">Toutes les filières</option>
+              {uniqueFilieres.map((f: any) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </>
+          ) : (
+            <option value={filiereName || ""}>{filiereName}</option>
+          )}
+        </select>
 
         <select
           className="p-2.5 bg-gray-50 border rounded-xl outline-none text-sm font-medium"
@@ -143,7 +181,7 @@ export default function AssignmentTable() {
                 <th className="p-4 text-xs font-bold text-gray-400 uppercase">
                   Salle
                 </th>
-                {role == "admin" && (
+                {role === "admin" && (
                   <th className="p-4 text-xs font-bold text-gray-400 uppercase text-right">
                     Action
                   </th>
@@ -160,6 +198,15 @@ export default function AssignmentTable() {
                     Chargement...
                   </td>
                 </tr>
+              ) : filteredData.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="p-10 text-center text-gray-400 italic"
+                  >
+                    Aucun résultat trouvé.
+                  </td>
+                </tr>
               ) : (
                 filteredData.map((item) => (
                   <tr
@@ -171,15 +218,13 @@ export default function AssignmentTable() {
                     </td>
                     <td className="p-4">
                       <div className="flex flex-col">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-indigo-600">
-                            {item.course_name}
-                          </span>
-                          <span className="text-[11px] text-gray-500 uppercase">
-                            {item.filiere_name} •{item.session_name}• (
-                            {item.year_name})
-                          </span>
-                        </div>
+                        <span className="text-sm font-bold text-indigo-600">
+                          {item.course_name}
+                        </span>
+                        <span className="text-[11px] text-gray-500 uppercase">
+                          {item.filiere_name}-{item.year_level_name} •{" "}
+                          {item.session_name}• ({item.year_name})
+                        </span>
                       </div>
                     </td>
                     <td className="p-4">
@@ -205,7 +250,7 @@ export default function AssignmentTable() {
                       )}
                     </td>
 
-                    {role == "admin" && (
+                    {role === "admin" && (
                       <td className="p-4 text-right">
                         <button
                           onClick={() => {
