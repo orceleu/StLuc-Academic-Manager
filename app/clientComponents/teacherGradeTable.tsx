@@ -24,6 +24,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "../clientComponents/AuthContext";
+
 export default function GradesPageTeachers() {
   const [rawData, setRawData] = useState<any>({
     students: [],
@@ -38,8 +39,8 @@ export default function GradesPageTeachers() {
     Record<string, number | string>
   >({});
 
-  // 1. Modifier l'état initial
   const [filterFiliere, setFilterFiliere] = useState<string>("");
+  const [filterAnnee, setFilterAnnee] = useState<string>("");
   const [sessions, setSessions] = useState<any[]>([]);
   const [years, setYears] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState("");
@@ -48,18 +49,17 @@ export default function GradesPageTeachers() {
   const [targetFiliereId, setTargetFiliereId] = useState("");
   const [allFilieres, setAllFilieres] = useState<any[]>([]);
   const { user, role } = useAuth();
-  // Stocke l'ID sous forme "enrollId-courseId" pour cibler précisément le bouton
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
   useEffect(() => {
     async function loadFilters() {
-      const s = await getSessions(); // API
+      const s = await getSessions();
       const y = await getAcademicYears();
-      const f = await getFilieres(); // Récupère les filières via ton API
+      const f = await getFilieres();
       setSessions(s);
       setYears(y);
       setAllFilieres(f);
 
-      // Valeur par défaut
       if (s.length > 0) setSessionId(s[0].id);
       if (y.length > 0) setYearId(y[0].id);
       if (f.length > 0) setTargetFiliereId(f[0].id);
@@ -67,11 +67,10 @@ export default function GradesPageTeachers() {
 
     loadFilters();
   }, []);
+
   const handleFinalPromotion = async () => {
     setIsSaving(true);
-
     try {
-      // 1. Filtrer les admis
       const admitted = filteredStudents.filter((s: any) => {
         const p = calculateFinalPercentage(s.enrollment_id, dynamicColumns);
         return parseFloat(p) >= 70;
@@ -82,14 +81,11 @@ export default function GradesPageTeachers() {
         return;
       }
 
-      // 2. Préparer les données avec les IDs trouvés
       const dataToSave = admitted.map((s: any) => {
-        // On cherche l'étudiant dans rawData pour être sûr d'avoir son student_id original
-
         return {
-          student_id: s.student_id, // Utilise l'ID trouvé
-          filiere_id: targetFiliereId, // L'ID sélectionné dans le popup
-          academic_year_id: yearId, // L'ID sélectionné dans le header
+          student_id: s.student_id,
+          filiere_id: targetFiliereId,
+          academic_year_id: yearId,
           session_id: sessionId,
         };
       });
@@ -105,40 +101,34 @@ export default function GradesPageTeachers() {
       setIsSaving(false);
     }
   };
-  // 2. Mettre à jour la filière par défaut quand rawData change
+
   useEffect(() => {
     if (rawData.courses.length > 0 && filterFiliere === "") {
-      // Récupère la liste unique des noms de filières
       const uniqueFilieres = Array.from(
         new Set(rawData.courses.map((c: any) => c.filiere_name)),
       );
       if (uniqueFilieres.length > 0) {
-        setFilterFiliere(uniqueFilieres[0] as string); // Sélectionne la première
+        setFilterFiliere(uniqueFilieres[0] as string);
       }
     }
   }, [rawData, filterFiliere]);
+
+  // Réinitialiser le filtre d'année lorsque la filière change
+  useEffect(() => {
+    setFilterAnnee("");
+  }, [filterFiliere]);
+
   useEffect(() => {
     loadData();
   }, []);
 
-  /*async function loadData() {
-    setLoading(true);
-    const data = await getPalmaresData();
-    setRawData(data);
-    setLoading(false);
-  }*/
   async function loadData() {
     if (!sessionId || !yearId) return;
-
     setLoading(true);
-
     const data = await getPalmaresDataTeacher(sessionId, yearId);
-
     setRawData(data);
     setLoading(false);
   }
-
-  // --- LOGIQUE DE CALCUL ---
 
   const getCurrentScore = (enrollId: string, offId: string) => {
     const key = `${enrollId}-${offId}`;
@@ -150,26 +140,13 @@ export default function GradesPageTeachers() {
     return grade ? grade.score : "";
   };
 
-  // Somme brute de toutes les notes
   const calculateSumNotes = (enrollId: string, visibleCourses: any[]) => {
     return visibleCourses.reduce((acc: number, course: any) => {
       const score = getCurrentScore(enrollId, course.offering_id);
       return acc + (score !== "" ? parseFloat(score as string) : 0);
     }, 0);
   };
-  const formatLastUpdate = (enrollId: string, offId: string) => {
-    // On cherche la note correspondante
-    const grade = rawData.grades.find(
-      (g: any) =>
-        g.enrollment_id === enrollId && g.course_offering_id === offId,
-    );
 
-    if (!grade || !grade.updated_at) return null;
-
-    const date = new Date(grade.updated_at);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
-  // Somme de tous les coefficients
   const calculateSumCoeff = (visibleCourses: any[]) => {
     return visibleCourses.reduce(
       (acc: number, course: any) => acc + (course.coefficient || 0),
@@ -177,7 +154,6 @@ export default function GradesPageTeachers() {
     );
   };
 
-  // Moyenne % = (Somme Notes / Somme Coeff) * 100
   const calculateFinalPercentage = (
     enrollId: string,
     visibleCourses: any[],
@@ -188,10 +164,7 @@ export default function GradesPageTeachers() {
     return ((sumNotes / sumCoeff) * 100).toFixed(2);
   };
 
-  // --- ACTIONS ---
-
   const handleInputChange = (enrollId: string, offId: string, val: string) => {
-    // Autoriser vide (pour effacer)
     if (val === "") {
       setPendingChanges((prev) => ({
         ...prev,
@@ -199,98 +172,30 @@ export default function GradesPageTeachers() {
       }));
       return;
     }
-
     const num = parseFloat(val);
-
-    // Validation simple
     if (isNaN(num) || num < 0 || num > 100) return;
-
     setPendingChanges((prev) => ({
       ...prev,
       [`${enrollId}-${offId}`]: num,
     }));
   };
-  const handlePromoteStudents = async () => {
-    // 1. On vérifie si une année est bien sélectionnée
-    if (!yearId) {
-      alert("Veuillez sélectionner une année académique cible.");
-      return;
-    }
 
-    // Confirmation visuelle avec le nom de l'année
-    const selectedYearName = years.find((y) => y.id === yearId)?.name;
-    if (
-      !confirm(
-        `Voulez-vous admettre les étudiants (>= 70%) en ${selectedYearName} ?`,
-      )
-    )
-      return;
-
-    setIsSaving(true);
-
-    try {
-      // 2. Filtrer les étudiants qui ont 70% ou plus
-      const admittedStudents = filteredStudents.filter((student: any) => {
-        const percent = calculateFinalPercentage(
-          student.enrollment_id,
-          dynamicColumns,
-        );
-        return parseFloat(percent) >= 70;
-      });
-
-      if (admittedStudents.length === 0) {
-        alert("Aucun étudiant n'atteint les 70% requis pour la promotion.");
-        setIsSaving(false);
-        return;
-      }
-
-      // 3. Préparer les données en utilisant yearId du select
-      const promotionData = admittedStudents.map((s: any) => ({
-        student_id: s.student_id, // Récupéré via rawData
-        filiere_id: s.filiere_id, // Récupéré via rawData
-        academic_year_id: yearId, // <--- Voici l'ID de ton select !
-        session_id: sessionId, // Session actuelle
-      }));
-
-      // 4. Appel de la fonction Neon
-      const res = await enrollStudentsInBulk(promotionData);
-
-      if (res.success) {
-        alert(
-          `Félicitations ! ${admittedStudents.length} étudiants ont été inscrits en ${selectedYearName}.`,
-        );
-      } else {
-        alert("Erreur lors de l'inscription en base de données.");
-      }
-    } catch (error) {
-      console.error("Promotion error:", error);
-      alert("Une erreur critique est survenue.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
   const exportToExcel = () => {
-    // 1. Colonnes dynamiques (déjà filtrées par filière)
     const courses = dynamicColumns;
-
-    // 2. Construire les données
     const data = filteredStudents.map((student: any) => {
       const row: any = {
         Etudiant: student.student_name,
         Filiere: student.filiere_name,
       };
 
-      // Ajouter chaque cours
       courses.forEach((course: any) => {
         const score = getCurrentScore(
           student.enrollment_id,
           course.offering_id,
         );
-
         row[course.course_name] = score === "" ? "" : Number(score);
       });
 
-      // Ajouter calculs
       const sumNotes = calculateSumNotes(student.enrollment_id, courses);
       const sumCoeff = calculateSumCoeff(courses);
       const percent = calculateFinalPercentage(student.enrollment_id, courses);
@@ -302,14 +207,10 @@ export default function GradesPageTeachers() {
       return row;
     });
 
-    // 3. Créer feuille Excel
     const worksheet = XLSX.utils.json_to_sheet(data);
-
-    // 4. Créer workbook
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Palmares");
 
-    // 5. Export fichier
     const excelBuffer = XLSX.write(workbook, {
       bookType: "xlsx",
       type: "array",
@@ -318,50 +219,16 @@ export default function GradesPageTeachers() {
     const blob = new Blob([excelBuffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
     });
-
     saveAs(blob, `palmares_${filterFiliere}.xlsx`);
   };
-  const handleSave = async () => {
-    setIsSaving(true);
 
-    // 1. On transforme l'objet { "ID-ID": 15 } en un tableau d'entrées [ ["ID-ID", 15], ...]
-    const updates = Object.entries(pendingChanges).map(([key, score]) => {
-      // 2. On découpe la clé pour retrouver les IDs originaux
-      const [enrollment_id, course_offering_id] = key.split("-");
-
-      // 3. On prépare l'objet final pour la base de données
-      if (score === "") {
-        return {
-          enrollment_id,
-          course_offering_id,
-          score: null, // Si l'input est vide, on envoie null pour effacer en DB
-        };
-      }
-
-      return {
-        enrollment_id,
-        course_offering_id,
-        score: Number(score), // On s'assure que c'est bien un nombre
-      };
-    });
-    console.table(updates);
-    // 4. On envoie tout d'un coup au serveur
-    const res = await saveBulkGrades(updates);
-
-    if (res.success) {
-      setPendingChanges({}); // On vide les changements locaux (car ils sont maintenant en DB)
-      await loadData(); // On rafraîchit l'affichage avec les données du serveur
-    }
-
-    setIsSaving(false);
-  };
   const handleUpdate = async (
     enrollId: string,
     courseId: string,
     score: string,
   ) => {
     const uniqueId = `${enrollId}-${courseId}`;
-    setUpdatingId(uniqueId); // Active le loader
+    setUpdatingId(uniqueId);
     if (!user?.uid) return;
     try {
       const result = await updateGradeTeacher(
@@ -371,31 +238,46 @@ export default function GradesPageTeachers() {
         user?.uid,
       );
       if (result.success) {
-        // Optionnel : Vous pouvez ajouter un toast de succès ici
-        await loadData(); // Rafraîchir les données locales si nécessaire
+        await loadData();
       }
     } catch (error) {
       console.error(error);
     } finally {
-      setUpdatingId(null); // Désactive le loader
+      setUpdatingId(null);
     }
   };
 
   useEffect(() => {
     loadData();
   }, [sessionId, yearId]);
-  // --- FILTRAGE ---
+
+  // --- FILTRAGE DYNAMIQUE ---
+  // On filtre d'abord les colonnes (cours) de la filière sélectionnée
   const dynamicColumns = rawData.courses.filter(
-    (c: any) => c.filiere_name === filterFiliere,
+    (c: any) =>
+      c.filiere_name === filterFiliere &&
+      (filterAnnee === "" || c.annee_name === filterAnnee),
   );
+
+  // On filtre les étudiants correspondants
   const filteredStudents = rawData.students.filter(
     (s: any) =>
       (filterFiliere === "" || s.filiere_name === filterFiliere) &&
+      (filterAnnee === "" || s.annee_name === filterAnnee) &&
       s.student_name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
-  // --- FONCTION UTILITAIRE (À ajouter avant le return) ---
+
+  // Génération de la liste des années uniques disponibles *uniquement* pour la filière sélectionnée
+  const availableYearsForSelectedFiliere = Array.from(
+    new Set(
+      rawData.courses
+        .filter((c: any) => c.filiere_name === filterFiliere)
+        .map((c: any) => c.annee_name)
+        .filter(Boolean),
+    ),
+  );
+
   const getGradeUpdatedAt = (enrollId: string) => {
-    // 1. Filtrer les notes de l'étudiant qui ont une date valide
     const studentGrades = rawData.grades.filter(
       (g: any) =>
         g.enrollment_id === enrollId && (g.updated_at || g.created_at),
@@ -403,7 +285,6 @@ export default function GradesPageTeachers() {
 
     if (studentGrades.length === 0) return "Aucune";
 
-    // 2. Récupérer le timestamp le plus récent (en gérant les dates invalides)
     const timestamps = studentGrades.map((g: any) => {
       const d = new Date(g.updated_at || g.created_at);
       return isNaN(d.getTime()) ? 0 : d.getTime();
@@ -412,22 +293,20 @@ export default function GradesPageTeachers() {
     const lastTimestamp = Math.max(...timestamps);
     if (lastTimestamp === 0) return "Format date invalide";
 
-    // 3. Calculer la différence de temps
     const now = new Date().getTime();
     const diffInSeconds = Math.floor((now - lastTimestamp) / 1000);
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     const diffInHours = Math.floor(diffInMinutes / 60);
     const diffInDays = Math.floor(diffInHours / 24);
 
-    // 4. Retourner le format relatif "il y a X..."
     if (diffInSeconds < 60) return "À l'instant";
     if (diffInMinutes < 60) return `Il y a ${diffInMinutes} min`;
     if (diffInHours < 24) return `Il y a ${diffInHours} h`;
     if (diffInDays === 1) return "Hier";
 
-    // Si c'est plus vieux, on affiche la date simple
     return new Date(lastTimestamp).toLocaleDateString();
   };
+
   return (
     <div className="p-2 md:p-6 space-y-6 bg-gray-50 min-h-screen font-sans">
       {/* HEADER & CONTRÔLES */}
@@ -460,6 +339,7 @@ export default function GradesPageTeachers() {
             />
           </div>
 
+          {/* SÉLECTEUR FILIÈRE */}
           <select
             className="px-4 py-2.5 bg-gray-50 border rounded-xl outline-none text-sm font-bold text-gray-600"
             value={filterFiliere}
@@ -473,6 +353,21 @@ export default function GradesPageTeachers() {
               </option>
             ))}
           </select>
+
+          {/* SÉLECTEUR ANNÉE : S'actualise dynamiquement selon la filière */}
+          <select
+            className="px-4 py-2.5 bg-gray-50 border rounded-xl outline-none text-sm font-bold text-gray-600"
+            value={filterAnnee}
+            onChange={(e) => setFilterAnnee(e.target.value)}
+          >
+            <option value="">Toutes les années</option>
+            {availableYearsForSelectedFiliere.map((annee: any) => (
+              <option key={annee} value={annee}>
+                {annee}
+              </option>
+            ))}
+          </select>
+
           <select
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
@@ -496,13 +391,12 @@ export default function GradesPageTeachers() {
               </option>
             ))}
           </select>
+
           {role == "admin" && (
             <button
-              onClick={() => {
-                setIsModalOpen(true);
-              }}
+              onClick={() => setIsModalOpen(true)}
               disabled={isSaving || filteredStudents.length === 0}
-              className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 transition-all "
+              className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 transition-all"
             >
               {isSaving ? (
                 <Loader2 className="animate-spin" size={18} />
@@ -514,6 +408,7 @@ export default function GradesPageTeachers() {
           )}
         </div>
       </div>
+
       <div className="flex items-center gap-3">
         <Button variant={"outline"} size={"sm"} onClick={exportToExcel}>
           Exporter en Excel
@@ -524,18 +419,18 @@ export default function GradesPageTeachers() {
       </div>
 
       {/* TABLEAU DE RÉSULTATS */}
-      <div className="bg-white rounded-md border  overflow-hidden">
+      <div className="bg-white rounded-md border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-slate-900 text-white">
-                <th className="p-5 text-left sticky left-0 bg-slate-900 z-20  border-r border-slate-800 text-[10px] font-black uppercase tracking-widest">
+                <th className="p-5 text-left sticky left-0 bg-slate-900 z-20 border-r border-slate-800 text-[10px] font-black uppercase tracking-widest">
                   Étudiant / Filière
                 </th>
                 {dynamicColumns.map((course: any) => (
                   <th
                     key={course.offering_id}
-                    className="p-4 text-center border-r border-slate-800 "
+                    className="p-4 text-center border-r border-slate-800"
                   >
                     <div className="text-[10px] font-medium text-slate-400 truncate mb-1">
                       {course.course_name}
@@ -593,13 +488,15 @@ export default function GradesPageTeachers() {
                             {student.student_name}
                           </span>
                           <span className="text-[9px] text-indigo-500 font-black tracking-tighter uppercase">
-                            {student.filiere_name}
+                            {student.filiere_name}{" "}
+                            {student.annee_name
+                              ? `- ${student.annee_name}`
+                              : ""}
                           </span>
                         </div>
                       </td>
 
                       {dynamicColumns.map((course: any) => {
-                        // Vérification : l'utilisateur peut modifier s'il est admin OU s'il est le prof du cours
                         const canEdit =
                           role === "admin" ||
                           (role === "teacher" &&
@@ -613,14 +510,14 @@ export default function GradesPageTeachers() {
                             <div className="flex flex-col items-center gap-2">
                               <input
                                 type="number"
-                                disabled={!canEdit} // Désactivé si ce n'est pas son cours
+                                disabled={!canEdit}
                                 className={`w-16 p-2 text-center border-2 rounded-xl font-bold outline-none transition-all
-            ${
-              !canEdit
-                ? "bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200"
-                : "bg-white border-indigo-100 focus:border-indigo-500 shadow-sm"
-            }
-          `}
+                                  ${
+                                    !canEdit
+                                      ? "bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200"
+                                      : "bg-white border-indigo-100 focus:border-indigo-500 shadow-sm"
+                                  }
+                                `}
                                 value={getCurrentScore(
                                   student.enrollment_id,
                                   course.offering_id,
@@ -634,7 +531,6 @@ export default function GradesPageTeachers() {
                                 }
                               />
 
-                              {/* Afficher le bouton seulement si le prof est autorisé */}
                               {canEdit && (
                                 <button
                                   onClick={() => {
@@ -694,6 +590,7 @@ export default function GradesPageTeachers() {
           </table>
         </div>
       </div>
+
       {/* MODAL DE CONFIRMATION */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">

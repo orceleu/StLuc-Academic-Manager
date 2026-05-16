@@ -38,6 +38,13 @@ export default function GradesPage() {
   >({});
 
   const [filterFiliere, setFilterFiliere] = useState<string>("");
+  const [filterYearLevel, setFilterYearLevel] = useState<string>("1");
+
+  // NOUVEAU : Liste des années disponibles pour la filière sélectionnée
+  const [availableYearLevels, setAvailableYearLevels] = useState<number[]>([
+    1, 2, 3,
+  ]);
+
   const [sessions, setSessions] = useState<any[]>([]);
   const [years, setYears] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState("");
@@ -46,16 +53,14 @@ export default function GradesPage() {
   const [targetFiliereId, setTargetFiliereId] = useState("");
   const [allFilieres, setAllFilieres] = useState<any[]>([]);
 
-  // Récupération de filiereName et role depuis le contexte d'authentification
   const { user, role, filiereName } = useAuth();
-
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadFilters() {
       const s = await getSessions();
       const y = await getAcademicYears();
-      const f = await getFilieres();
+      const f = await getFilieres(); // Supposé retourner ex: [{id: "1", name: "Télécom", duration_years: 2}]
       setSessions(s);
       setYears(y);
       setAllFilieres(f);
@@ -68,12 +73,43 @@ export default function GradesPage() {
     loadFilters();
   }, []);
 
-  // Force la filière sélectionnée si l'utilisateur est un responsable
   useEffect(() => {
     if (role === "responsable" && filiereName) {
       setFilterFiliere(filiereName);
     }
   }, [role, filiereName]);
+
+  // NOUVEAU : Ajuste les années disponibles dès que la filière change
+  useEffect(() => {
+    if (filterFiliere && allFilieres.length > 0) {
+      // Trouver la filière sélectionnée dans la liste complète
+      const currentFiliere = allFilieres.find((f) => f.name === filterFiliere);
+
+      // Récupérer la durée (par défaut 3 ans si non spécifié dans ton schéma de BDD)
+      const duration =
+        currentFiliere?.duration_years || currentFiliere?.nombre_annees || 3;
+
+      // Générer le tableau d'années ex: pour 2 ans -> [1, 2]
+      const levels = Array.from({ length: duration }, (_, i) => i + 1);
+      setAvailableYearLevels(levels);
+
+      // Si l'année actuellement filtrée dépasse la nouvelle durée, on reset à la 1ère année
+      if (!levels.includes(parseInt(filterYearLevel))) {
+        setFilterYearLevel("1");
+      }
+    }
+  }, [filterFiliere, allFilieres]);
+
+  // Trouver l'objet de la filière sélectionnée actuellement pour connaître sa durée maximale
+  const currentSelectedFiliereObj = allFilieres.find(
+    (f) => f.name === filterFiliere,
+  );
+  const maxDurationForCurrentFiliere =
+    currentSelectedFiliereObj?.duration_years ||
+    currentSelectedFiliereObj?.nombre_annees ||
+    3;
+  const isLastYearOfFiliere =
+    parseInt(filterYearLevel) >= maxDurationForCurrentFiliere;
 
   const handleFinalPromotion = async () => {
     setIsSaving(true);
@@ -88,19 +124,25 @@ export default function GradesPage() {
         return;
       }
 
+      const nextYearLevel = parseInt(filterYearLevel) + 1;
+
       const dataToSave = admitted.map((s: any) => {
         return {
           student_id: s.student_id,
           filiere_id: targetFiliereId,
           academic_year_id: yearId,
           session_id: sessionId,
+          year_level: nextYearLevel,
         };
       });
 
       const res = await enrollStudentsInBulk(dataToSave);
       if (res.success) {
-        alert("Promotion réussie !");
+        alert(
+          `Promotion réussie en ${nextYearLevel}${nextYearLevel === 1 ? "ère" : "ème"} Année !`,
+        );
         setIsModalOpen(false);
+        await loadData();
       }
     } catch (error) {
       alert("Erreur lors de la promotion");
@@ -109,7 +151,6 @@ export default function GradesPage() {
     }
   };
 
-  // Met à jour la filière par défaut uniquement pour les admin/autres rôles non restreints
   useEffect(() => {
     if (
       role !== "responsable" &&
@@ -148,16 +189,6 @@ export default function GradesPage() {
       const score = getCurrentScore(enrollId, course.offering_id);
       return acc + (score !== "" ? parseFloat(score as string) : 0);
     }, 0);
-  };
-
-  const formatLastUpdate = (enrollId: string, offId: string) => {
-    const grade = rawData.grades.find(
-      (g: any) =>
-        g.enrollment_id === enrollId && g.course_offering_id === offId,
-    );
-    if (!grade || !grade.updated_at) return null;
-    const date = new Date(grade.updated_at);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   const calculateSumCoeff = (visibleCourses: any[]) => {
@@ -200,6 +231,7 @@ export default function GradesPage() {
       const row: any = {
         Etudiant: student.student_name,
         Filiere: student.filiere_name,
+        Annee: student.year_level ? `${student.year_level}e Année` : "",
       };
 
       courses.forEach((course: any) => {
@@ -234,49 +266,7 @@ export default function GradesPage() {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
     });
 
-    saveAs(blob, `palmares_${filterFiliere}.xlsx`);
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    const updates = Object.entries(pendingChanges).map(([key, score]) => {
-      const [enrollment_id, course_offering_id] = key.split("-");
-      if (score === "") {
-        return { enrollment_id, course_offering_id, score: null };
-      }
-      return {
-        enrollment_id,
-        course_offering_id,
-        score: Number(score),
-      };
-    });
-
-    const res = await saveBulkGrades(updates);
-    if (res.success) {
-      setPendingChanges({});
-      await loadData();
-    }
-    setIsSaving(false);
-  };
-
-  const handleUpdate = async (
-    enrollId: string,
-    courseId: string,
-    score: string,
-  ) => {
-    const uniqueId = `${enrollId}-${courseId}`;
-    setUpdatingId(uniqueId);
-
-    try {
-      const result = await updateGrade(enrollId, courseId, Number(score));
-      if (result.success) {
-        await loadData();
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setUpdatingId(null);
-    }
+    saveAs(blob, `palmares_${filterFiliere}_Annee_${filterYearLevel}.xlsx`);
   };
 
   useEffect(() => {
@@ -284,12 +274,15 @@ export default function GradesPage() {
   }, [sessionId, yearId]);
 
   const dynamicColumns = rawData.courses.filter(
-    (c: any) => c.filiere_name === filterFiliere,
+    (c: any) =>
+      c.filiere_name === filterFiliere &&
+      (!c.year_level || String(c.year_level) === filterYearLevel),
   );
 
   const filteredStudents = rawData.students.filter(
     (s: any) =>
       (filterFiliere === "" || s.filiere_name === filterFiliere) &&
+      (!s.year_level || String(s.year_level) === filterYearLevel) &&
       s.student_name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
@@ -322,7 +315,29 @@ export default function GradesPage() {
 
     return new Date(lastTimestamp).toLocaleDateString();
   };
+  const handleUpdate = async (
+    enrollId: string,
+    courseId: string,
+    score: string,
+  ) => {
+    const uniqueId = `${enrollId}-${courseId}`;
+    setUpdatingId(uniqueId);
 
+    try {
+      const result = await updateGrade(enrollId, courseId, Number(score));
+      if (result.success) {
+        await loadData();
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [sessionId, yearId]);
   return (
     <div className="p-2 md:p-6 space-y-6 bg-gray-50 min-h-screen font-sans">
       {/* HEADER & CONTRÔLES */}
@@ -355,7 +370,7 @@ export default function GradesPage() {
             />
           </div>
 
-          {/* SÉLECTEUR DE FILIÈRE RESTREINT OU DISPONIBLE */}
+          {/* SÉLECTEUR DE FILIÈRE */}
           <select
             className="px-4 py-2.5 bg-gray-50 border rounded-xl outline-none text-sm font-bold text-gray-600 disabled:bg-gray-100 disabled:text-gray-400"
             value={filterFiliere}
@@ -373,6 +388,20 @@ export default function GradesPage() {
             ) : (
               <option value={filiereName || ""}>{filiereName}</option>
             )}
+          </select>
+
+          {/* SÉLECTEUR D'ANNÉE EN FONCTION DE LA DURÉE DE LA FILIÈRE */}
+          <select
+            value={filterYearLevel}
+            onChange={(e) => setFilterYearLevel(e.target.value)}
+            className="px-4 py-2.5 bg-gray-50 border rounded-xl text-sm font-bold text-gray-600 outline-none"
+          >
+            {availableYearLevels.map((lvl) => (
+              <option key={lvl} value={String(lvl)}>
+                {lvl}
+                {lvl === 1 ? "ère" : "ème"} Année
+              </option>
+            ))}
           </select>
 
           <select
@@ -402,15 +431,20 @@ export default function GradesPage() {
           {role === "admin" && (
             <button
               onClick={() => setIsModalOpen(true)}
-              disabled={isSaving || filteredStudents.length === 0}
-              className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 transition-all"
+              // Désactivé si on est sur la dernière année (Ex: pas de 3ème année pour Telecom)
+              disabled={
+                isSaving || filteredStudents.length === 0 || isLastYearOfFiliere
+              }
+              className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 disabled:bg-gray-300 disabled:text-gray-500 transition-all text-sm"
             >
               {isSaving ? (
                 <Loader2 className="animate-spin" size={18} />
               ) : (
                 <GraduationCap size={18} />
               )}
-              Admis en 2ème année
+              {isLastYearOfFiliere
+                ? "Dernière année atteinte"
+                : `Admettre en ${parseInt(filterYearLevel) + 1}e année`}
             </button>
           )}
         </div>
@@ -419,9 +453,6 @@ export default function GradesPage() {
       <div className="flex items-center gap-3">
         <Button variant={"outline"} size={"sm"} onClick={exportToExcel}>
           Exporter en Excel
-        </Button>
-        <Button variant={"outline"} size={"sm"} onClick={exportToExcel}>
-          Exporter en PDF
         </Button>
       </div>
 
@@ -495,7 +526,11 @@ export default function GradesPage() {
                             {student.student_name}
                           </span>
                           <span className="text-[9px] text-indigo-500 font-black tracking-tighter uppercase">
-                            {student.filiere_name}
+                            {student.filiere_name} —{" "}
+                            {student.year_level
+                              ? `${student.year_level}e`
+                              : filterYearLevel}{" "}
+                            Année
                           </span>
                         </div>
                       </td>
@@ -554,7 +589,7 @@ export default function GradesPage() {
                               `${student.enrollment_id}-${course.offering_id}` ? (
                                 <>
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  En cours...
+                                  ...
                                 </>
                               ) : (
                                 "Update"
@@ -607,7 +642,7 @@ export default function GradesPage() {
                 <GraduationCap size={28} />
               </div>
               <h2 className="text-xl font-black text-slate-800">
-                Confirmer Admission
+                Admission en {parseInt(filterYearLevel) + 1}e Année
               </h2>
             </div>
 
@@ -631,8 +666,10 @@ export default function GradesPage() {
 
               <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
                 <p className="text-xs text-amber-700 font-medium italic">
-                  Note: Seuls les étudiants ayant une moyenne supérieure ou
-                  égale à **70%** seront transférés.
+                  Note: Seuls les étudiants de **{filterYearLevel}
+                  {filterYearLevel === "1" ? "ère" : "e"} Année** ayant une
+                  moyenne supérieure ou égale à **70%** seront promus en **
+                  {parseInt(filterYearLevel) + 1}e Année**.
                 </p>
               </div>
             </div>

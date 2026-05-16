@@ -492,23 +492,7 @@ export default function CourseManagementPage({
                 </div>
               </div>
             </div>
-            <div className="space-y-4">
-              {error && (
-                <div className="flex items-center gap-2 p-3 text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-xl">
-                  <AlertCircle size={18} />
 
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="flex items-center gap-2 p-3 text-sm font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-xl">
-                  <CheckCircle2 size={18} />
-
-                  {success}
-                </div>
-              )}
-            </div>
             <button
               onClick={handleFullAssignment}
               disabled={isAssignmentPending}
