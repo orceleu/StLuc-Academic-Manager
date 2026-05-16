@@ -47,7 +47,7 @@ export default function FilierePage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [filiereNom, setFiliereNom] = useState("");
-  const [filiereAnnee, setFiliereAnnee] = useState<number>(3); // État ajouté (par défaut 3 ans)
+  const [filiereAnnee, setFiliereAnnee] = useState<number>(2); // État ajouté (par défaut 3 ans)
 
   const router = useRouter();
   const { role } = useAuth();
@@ -68,7 +68,7 @@ export default function FilierePage() {
     if (!filiereNom) return;
     await createFiliere(filiereNom, filiereAnnee);
     setFiliereNom("");
-    setFiliereAnnee(3); // Reset à la valeur par défaut
+    setFiliereAnnee(2); // Reset à la valeur par défaut
     refreshData();
   }
 

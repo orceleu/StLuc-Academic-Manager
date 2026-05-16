@@ -129,7 +129,31 @@ export default function AdminOverview() {
         <LoaderIcon className="animate-spin w-8 h-8 " />
       </div>
     );
+  function getGreeting(fullName: string): string {
+    // Vérifie si le nom est vide
+    if (!fullName.trim()) {
+      return "Bonjour";
+    }
 
+    // Récupère le premier mot du nom
+    const firstName = fullName.trim().split(" ")[0];
+
+    // Met la première lettre en majuscule
+    const formattedName =
+      firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+
+    // Heure actuelle
+    const hour = new Date().getHours();
+
+    // Détermine le message
+    const greeting = hour < 18 ? "Bonjour" : "Bonsoir";
+
+    return `${greeting} ${formattedName}`;
+  }
+
+  // Exemple
+  console.log(getGreeting("ferdinand Josne"));
+  // -> Bonjour Ferdinand
   return (
     <>
       <NavBar />
@@ -138,16 +162,27 @@ export default function AdminOverview() {
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-10">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
-            <p className="text-gray-500 text-sm mt-1">
-              <span className="font-semibold">{userName}</span>
+            {/* Header */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+                Dashboard
+              </h1>
+
+              {/* Badge rôle */}
+              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                {role}
+              </span>
+            </div>
+
+            {/* Greeting */}
+            <p className="text-gray-600 text-lg sm:text-xl mt-3">
+              <span className="font-semibold text-gray-800">
+                {getGreeting(userName || "")} 👋
+              </span>
             </p>
-            <p className="text-gray-500 text-sm mt-1">
-              Rôle : <span className="font-semibold">{role}</span>
-            </p>
-            <p className="text-gray-500 text-sm mt-1">
-              <span className="font-semibold">{filiereName}</span>
-            </p>
+
+            {/* Filière */}
+            <p className="text-gray-500 text-sm mt-2">{filiereName}</p>
           </div>
         </div>
 
