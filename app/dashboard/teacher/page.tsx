@@ -50,7 +50,7 @@ export default function TeacherPage() {
     async function init() {
       if (user) {
         const profile = await getUserRoleAndFiliere(user.uid);
-        if (profile) setUserFiliere(profile.filiere || "admin");
+        if (profile) setUserFiliere(profile.role || "admin");
       }
     }
     init();
