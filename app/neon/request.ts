@@ -1609,3 +1609,56 @@ export async function getFiliereDurationByName(name: string) {
 
   return result?.[0]?.duration_years ?? null;
 }
+/*export async function getEnrollmentsByYear(
+  filiereName: string,
+  yearLevel: number,
+  sessionId: string,
+) {
+  const result = await sql`
+    SELECT e.student_id
+    FROM enrollments e
+    JOIN filieres f ON f.id = e.filiere_id
+    WHERE LOWER(f.name) = LOWER(${filiereName})
+      AND e.current_year = ${yearLevel}
+      AND e.session_id = ${sessionId}
+  `;
+
+  return result ?? [];
+}*/
+/*export async function getEligibleStudentsForPromotion(
+  filiereName: string,
+  targetYear: number,
+  sessionId: string,
+) {
+  const result = await sql`
+    SELECT DISTINCT e.student_id
+    FROM enrollments e
+    JOIN filieres f ON f.id = e.filiere_id
+    WHERE LOWER(f.name) = LOWER(${filiereName})
+      AND e.session_id = ${sessionId}
+      AND e.student_id NOT IN (
+        SELECT student_id
+        FROM enrollments
+        WHERE current_year = ${targetYear}
+        AND session_id = ${sessionId}
+      )
+  `;
+
+  return result.map((r: any) => r.student_id);
+}*/
+export async function getStudentsAlreadyInTargetYear(
+  filiereName: string,
+  targetYear: number,
+  sessionId: string,
+) {
+  const result = await sql`
+    SELECT DISTINCT e.student_id
+    FROM enrollments e
+    JOIN filieres f ON f.id = e.filiere_id
+    WHERE LOWER(f.name) = LOWER(${filiereName})
+      AND e.session_id = ${sessionId}
+      AND e.current_year = ${targetYear}
+  `;
+
+  return result.map((r: any) => r.student_id);
+}

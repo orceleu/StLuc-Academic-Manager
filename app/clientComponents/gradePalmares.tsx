@@ -9,7 +9,8 @@ import {
   getSessions,
   updateGrade,
   saveBulkGrades,
-  getFiliereDurationByName, // Importé pour gérer la réinitialisation des notes
+  getFiliereDurationByName,
+  getStudentsAlreadyInTargetYear,
 } from "@/app/neon/request";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -100,7 +101,7 @@ export default function GradesPage() {
   const isLastYearOfFiliere =
     parseInt(filterYearLevel) >= maxDurationForCurrentFiliere;
 
-  const handleFinalPromotion = async () => {
+  /*const handleFinalPromotion = async () => {
     setIsSaving(true);
     try {
       // Filtrer les étudiants qui ont strictement plus de 70
@@ -177,8 +178,252 @@ export default function GradesPage() {
     } finally {
       setIsSaving(false);
     }
-  };
+  };*/
 
+  /*const handleFinalPromotion = async () => {
+    setIsSaving(true);
+
+    try {
+      const targetYear = Number(filterYearLevel) + 1;
+
+      // 1. étudiants déjà en année cible (ex: 2e année)
+      const alreadyEnrolledRes = await getEnrollmentsByYear(
+        filterFiliere,
+        targetYear,
+        sessionId,
+      );
+
+      const alreadyEnrolledIds = new Set(alreadyEnrolledRes);
+
+      // 2. filtrer les étudiants admissibles (>70) + pas déjà promus
+      const admitted = filteredStudents.filter((s: any) => {
+        const percent = parseFloat(
+          calculateFinalPercentage(s.enrollment_id, dynamicColumns),
+        );
+
+        const notAlreadyPromoted = !alreadyEnrolledIds.has(s.student_id);
+
+        return percent > 70 && notAlreadyPromoted;
+      });
+
+      // 3. aucun étudiant éligible
+      if (admitted.length === 0) {
+        alert(
+          "Aucun étudiant admissible ou tous les étudiants sont déjà en 2e année",
+        );
+        return;
+      }
+
+      // 4. calcul année académique suivante
+      const currentYearObj = years.find((y) => y.id === yearId);
+      let nextAcademicYearId = yearId;
+
+      if (currentYearObj?.name) {
+        const currentYearMatch = currentYearObj.name.match(/\d+/);
+
+        if (currentYearMatch) {
+          const currentStartYear = parseInt(currentYearMatch[0]);
+          const nextStartYear = currentStartYear + 1;
+          const nextEndYear = nextStartYear + 1;
+
+          const expectedNextYearName = currentYearObj.name.includes("-")
+            ? `${nextStartYear}-${nextEndYear}`
+            : `${nextStartYear}`;
+
+          const foundNextYear = years.find((y) =>
+            y.name.includes(expectedNextYearName),
+          );
+
+          if (foundNextYear) {
+            nextAcademicYearId = foundNextYear.id;
+          }
+        }
+      }
+
+      // 5. build enrollment data
+      const enrollmentData = admitted.map((s: any) => ({
+        student_id: s.student_id,
+        filiere_id: s.filiere_id,
+        academic_year_id: nextAcademicYearId,
+        session_id: sessionId,
+        current_year: targetYear,
+      }));
+
+      // 6. insert en bulk
+      const resEnroll = await enrollStudentsInBulk(enrollmentData);
+
+      if (resEnroll?.success) {
+        setPendingChanges({});
+
+        alert(
+          `Promotion réussie en ${targetYear}e année pour ${admitted.length} étudiant(s)`,
+        );
+
+        setIsModalOpen(false);
+        await loadData();
+      } else {
+        alert("Erreur lors de la promotion");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Erreur lors de la promotion et de la réinitialisation");
+    } finally {
+      setIsSaving(false);
+    }
+  };*/
+
+  /*const handleFinalPromotion = async () => {
+    setIsSaving(true);
+
+    try {
+      const targetYear = Number(filterYearLevel) + 1;
+
+      // 1. students déjà en 2e année (DB SAFE)
+      const alreadyPromotedIds = await getEligibleStudentsForPromotion(
+        filterFiliere,
+        targetYear,
+        sessionId,
+      );
+
+      const alreadySet = new Set(alreadyPromotedIds);
+
+      // 2. on filtre côté frontend uniquement pour affichage score
+      const candidates = filteredStudents.filter((s: any) => {
+        const percent = parseFloat(
+          calculateFinalPercentage(s.enrollment_id, dynamicColumns),
+        );
+
+        return percent > 70 && !alreadySet.has(s.student_id);
+      });
+
+      if (candidates.length === 0) {
+        alert("Aucun étudiant admissible ou déjà tous promus");
+        return;
+      }
+
+      // 3. next year logic
+      const currentYearObj = years.find((y) => y.id === yearId);
+      let nextAcademicYearId = yearId;
+
+      if (currentYearObj?.name) {
+        const match = currentYearObj.name.match(/\d+/);
+
+        if (match) {
+          const start = parseInt(match[0]);
+          const next = start + 1;
+
+          const expected = currentYearObj.name.includes("-")
+            ? `${next}-${next + 1}`
+            : `${next}`;
+
+          const found = years.find((y) => y.name.includes(expected));
+
+          if (found) nextAcademicYearId = found.id;
+        }
+      }
+
+      // 4. enrollment payload
+      const enrollmentData = candidates.map((s: any) => ({
+        student_id: s.student_id,
+        filiere_id: s.filiere_id,
+        academic_year_id: nextAcademicYearId,
+        session_id: sessionId,
+        current_year: targetYear,
+      }));
+
+      // 5. bulk insert
+      const res = await enrollStudentsInBulk(enrollmentData);
+
+      if (res?.success) {
+        setPendingChanges({});
+        alert(`Promotion réussie : ${candidates.length} étudiant(s)`);
+        setIsModalOpen(false);
+        await loadData();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur promotion");
+    } finally {
+      setIsSaving(false);
+    }
+  };*/
+
+  const handleFinalPromotion = async () => {
+    setIsSaving(true);
+
+    try {
+      const targetYear = Number(filterYearLevel) + 1;
+
+      // 1. récupérer les students déjà en targetYear (DB)
+      const excludedStudentIds = await getStudentsAlreadyInTargetYear(
+        filterFiliere,
+        targetYear,
+        sessionId,
+      );
+
+      const excludedSet = new Set(excludedStudentIds);
+
+      // 2. filtrer côté frontend
+      const candidates = filteredStudents.filter((s: any) => {
+        const percent = parseFloat(
+          calculateFinalPercentage(s.enrollment_id, dynamicColumns),
+        );
+
+        // ❌ EXCLUSION DB + condition note
+        return percent > 70 && !excludedSet.has(s.student_id);
+      });
+
+      if (candidates.length === 0) {
+        alert("Aucun étudiant admissible ou déjà tous en année supérieure");
+        return;
+      }
+
+      // 3. calcul année suivante
+      const currentYearObj = years.find((y) => y.id === yearId);
+      let nextAcademicYearId = yearId;
+
+      if (currentYearObj?.name) {
+        const match = currentYearObj.name.match(/\d+/);
+
+        if (match) {
+          const start = parseInt(match[0]);
+          const next = start + 1;
+
+          const expected = currentYearObj.name.includes("-")
+            ? `${next}-${next + 1}`
+            : `${next}`;
+
+          const found = years.find((y) => y.name.includes(expected));
+
+          if (found) nextAcademicYearId = found.id;
+        }
+      }
+
+      // 4. payload
+      const enrollmentData = candidates.map((s: any) => ({
+        student_id: s.student_id,
+        filiere_id: s.filiere_id,
+        academic_year_id: nextAcademicYearId,
+        session_id: sessionId,
+        current_year: targetYear,
+      }));
+
+      // 5. insert
+      const res = await enrollStudentsInBulk(enrollmentData);
+
+      if (res?.success) {
+        setPendingChanges({});
+        alert(`Promotion réussie : ${candidates.length} étudiant(s)`);
+        setIsModalOpen(false);
+        await loadData();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur promotion");
+    } finally {
+      setIsSaving(false);
+    }
+  };
   useEffect(() => {
     if (
       role !== "responsable" &&
