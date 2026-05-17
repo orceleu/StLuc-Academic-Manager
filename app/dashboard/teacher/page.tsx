@@ -58,7 +58,7 @@ export default function TeacherPage() {
 
   useEffect(() => {
     refreshTeachers();
-  }, [userFiliere]);
+  }, []);
 
   async function refreshTeachers() {
     const data = await getTeachers(userFiliere);

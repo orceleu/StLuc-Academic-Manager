@@ -81,34 +81,6 @@ export async function createResponsable(data: ResponsableInput) {
     };
   }
 }
-/*export async function getUserRoleAndFiliere(uid: string) {
-  try {
-    // IMPORTANT : Pas de guillemets autour de ${uid}
-    // On fait une jointure pour récupérer la filière si l'utilisateur est un responsable
-    const result = await sql`
-      SELECT u.role, r.filiere_id 
-      FROM users u
-      LEFT JOIN responsables r ON u.id = r.user_id
-      WHERE u.id = ${uid}
-      LIMIT 1
-    `;
-
-    if (!result || result.length === 0) {
-      console.log("Aucun utilisateur trouvé pour l'UID:", uid);
-      return null;
-    } else {
-      console.log("ok");
-    }
-
-    return {
-      role: result[0].role,
-      filiere: result[0].filiere_id || null,
-    };
-  } catch (error) {
-    console.error("Erreur fetch role Neon:", error);
-    return null;
-  }
-}*/
 
 export async function getUserRoleAndFiliere(uid: string) {
   try {
@@ -510,7 +482,7 @@ export async function getTotalTeachers() {
     return 0;
   }
 }
-export async function getDetailedStudents() {
+/*export async function getDetailedStudents() {
   try {
     return await sql`
       SELECT 
@@ -532,7 +504,7 @@ export async function getDetailedStudents() {
     console.error("Erreur fetch students:", error);
     return [];
   }
-}
+}*/
 // 1. Ajouter un Cours de base
 export async function addCourse(name: string) {
   const id = crypto.randomUUID();
@@ -1058,7 +1030,7 @@ export async function getPalmaresData0() {
     return { students: [], courses: [], grades: [] };
   }
 }
-export async function getPalmaresData(sessionId: string, yearId: string) {
+/*export async function getPalmaresData(sessionId: string, yearId: string) {
   try {
     // 1. Étudiants filtrés
     const students = await sql`
@@ -1115,7 +1087,124 @@ export async function getPalmaresData(sessionId: string, yearId: string) {
     console.error(error);
     return { students: [], courses: [], grades: [] };
   }
+}*/
+
+export async function getPalmaresData(sessionId: string, yearId: string) {
+  try {
+    // =========================
+    // ÉTUDIANTS
+    // =========================
+    const students = await sql`
+      SELECT 
+        e.id as enrollment_id,
+        e.student_id,
+        e.filiere_id,
+        e.current_year as year_level,
+
+        u.name as student_name,
+
+        f.name as filiere_name,
+
+        ay.name as academic_year_name,
+
+        e.academic_year_id,
+        e.session_id
+
+      
+
+      FROM enrollments e
+
+      JOIN students u 
+        ON e.student_id = u.id
+
+      JOIN filieres f 
+        ON e.filiere_id = f.id
+
+      JOIN academic_years ay 
+        ON e.academic_year_id = ay.id
+
+      WHERE 
+        e.session_id = ${sessionId}
+        AND e.academic_year_id = ${yearId}
+
+      ORDER BY 
+        u.name ASC
+    `;
+
+    // =========================
+    // COURS
+    // =========================
+    const courses = await sql`
+      SELECT 
+        co.id as offering_id,
+
+        co.year_level,
+
+        co.coefficient,
+
+        c.name as course_name,
+
+        f.name as filiere_name
+
+      FROM course_offerings co
+
+      JOIN courses c 
+        ON co.course_id = c.id
+
+      JOIN filieres f 
+        ON co.filiere_id = f.id
+
+      WHERE 
+        co.session_id = ${sessionId}
+        AND co.academic_year_id = ${yearId}
+
+      ORDER BY 
+        c.name ASC
+    `;
+
+    // =========================
+    // NOTES
+    // =========================
+    const grades = await sql`
+      SELECT 
+        g.id,
+        g.enrollment_id,
+        g.course_offering_id,
+        g.score,
+        g.created_at
+
+      FROM grades g
+
+      JOIN enrollments e 
+        ON g.enrollment_id = e.id
+
+      JOIN course_offerings co 
+        ON g.course_offering_id = co.id
+
+      WHERE
+        e.session_id = ${sessionId}
+        AND e.academic_year_id = ${yearId}
+
+        AND co.session_id = ${sessionId}
+        AND co.academic_year_id = ${yearId}
+    `;
+
+    return {
+      students,
+      courses,
+      grades,
+    };
+  } catch (error) {
+    console.error(error);
+
+    return {
+      students: [],
+      courses: [],
+      grades: [],
+    };
+  }
 }
+
 export async function saveGrade(
   enrollmentId: string,
   offeringId: string,
@@ -1202,17 +1291,17 @@ export async function enrollStudentsInBulk(data: any[]) {
           student_id, 
           filiere_id, 
           academic_year_id, 
-          session_id
+          session_id,
+          current_year
         )
         VALUES (
           ${crypto.randomUUID()}, 
           ${item.student_id}, 
           ${item.filiere_id}, 
           ${item.academic_year_id}, 
-          ${item.session_id}
-        )
-        
-      `;
+          ${item.session_id},
+          ${item.current_year})
+        `;
     }
 
     console.log(`Traitement terminé : ${data.length} étudiants analysés.`);
@@ -1485,4 +1574,38 @@ export async function getFiliereByResponsable(userId: string) {
     );
     return null;
   }
+}
+export async function getDetailedStudents() {
+  try {
+    return await sql`
+      SELECT 
+        s.id,
+        s.name,
+        s.matricule,
+        s.created_at,
+        f.name as filiere_name,
+        ay.name as year_name,        
+        sess.name as session_name,
+        e.current_year              
+      FROM students s
+      LEFT JOIN enrollments e ON s.id = e.student_id
+      LEFT JOIN filieres f ON e.filiere_id = f.id
+      LEFT JOIN academic_years ay ON e.academic_year_id = ay.id
+      LEFT JOIN sessions sess ON e.session_id = sess.id
+      ORDER BY s.created_at DESC
+    `;
+  } catch (error) {
+    console.error("Erreur fetch students:", error);
+    return [];
+  }
+}
+export async function getFiliereDurationByName(name: string) {
+  const result = await sql`
+    SELECT duration_years
+    FROM filieres
+    WHERE LOWER(name) = LOWER(${name})
+    LIMIT 1
+  `;
+
+  return result?.[0]?.duration_years ?? null;
 }

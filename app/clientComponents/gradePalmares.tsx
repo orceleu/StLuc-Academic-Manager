@@ -1,22 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Search,
-  Save,
-  Calculator,
-  Loader2,
-  BookOpen,
-  GraduationCap,
-} from "lucide-react";
+import { Search, Calculator, Loader2, GraduationCap } from "lucide-react";
 import {
   enrollStudentsInBulk,
   getAcademicYears,
-  getFilieres,
   getPalmaresData,
   getSessions,
-  saveBulkGrades,
   updateGrade,
+  saveBulkGrades,
+  getFiliereDurationByName, // Importé pour gérer la réinitialisation des notes
 } from "@/app/neon/request";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -36,13 +29,13 @@ export default function GradesPage() {
   const [pendingChanges, setPendingChanges] = useState<
     Record<string, number | string>
   >({});
-
+  const [filiereDuration, setFiliereDuration] = useState<number>(3);
   const [filterFiliere, setFilterFiliere] = useState<string>("");
   const [filterYearLevel, setFilterYearLevel] = useState<string>("1");
 
-  // NOUVEAU : Liste des années disponibles pour la filière sélectionnée
+  // Liste des années disponibles pour la filière sélectionnée
   const [availableYearLevels, setAvailableYearLevels] = useState<number[]>([
-    1, 2, 3,
+    1, 2, 3, 4,
   ]);
 
   const [sessions, setSessions] = useState<any[]>([]);
@@ -50,24 +43,20 @@ export default function GradesPage() {
   const [sessionId, setSessionId] = useState("");
   const [yearId, setYearId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [targetFiliereId, setTargetFiliereId] = useState("");
-  const [allFilieres, setAllFilieres] = useState<any[]>([]);
 
-  const { user, role, filiereName } = useAuth();
+  // Utilisation exclusive du contexte useAuth
+  const { role, filiereName, durationYears } = useAuth();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadFilters() {
       const s = await getSessions();
       const y = await getAcademicYears();
-      const f = await getFilieres(); // Supposé retourner ex: [{id: "1", name: "Télécom", duration_years: 2}]
       setSessions(s);
       setYears(y);
-      setAllFilieres(f);
 
       if (s.length > 0) setSessionId(s[0].id);
       if (y.length > 0) setYearId(y[0].id);
-      if (f.length > 0) setTargetFiliereId(f[0].id);
     }
 
     loadFilters();
@@ -79,73 +68,112 @@ export default function GradesPage() {
     }
   }, [role, filiereName]);
 
-  // NOUVEAU : Ajuste les années disponibles dès que la filière change
+  // Ajuste les années disponibles dès que la filière ou durationYears change
   useEffect(() => {
-    if (filterFiliere && allFilieres.length > 0) {
-      // Trouver la filière sélectionnée dans la liste complète
-      const currentFiliere = allFilieres.find((f) => f.name === filterFiliere);
+    if (filterFiliere) {
+      const levels = Array.from({ length: filiereDuration }, (_, i) => i + 1);
 
-      // Récupérer la durée (par défaut 3 ans si non spécifié dans ton schéma de BDD)
-      const duration =
-        currentFiliere?.duration_years || currentFiliere?.nombre_annees || 3;
-
-      // Générer le tableau d'années ex: pour 2 ans -> [1, 2]
-      const levels = Array.from({ length: duration }, (_, i) => i + 1);
       setAvailableYearLevels(levels);
 
-      // Si l'année actuellement filtrée dépasse la nouvelle durée, on reset à la 1ère année
       if (!levels.includes(parseInt(filterYearLevel))) {
         setFilterYearLevel("1");
       }
     }
-  }, [filterFiliere, allFilieres]);
+  }, [filterFiliere, filiereDuration]);
+  useEffect(() => {
+    const fetchDuration = async () => {
+      if (!filterFiliere) return;
 
-  // Trouver l'objet de la filière sélectionnée actuellement pour connaître sa durée maximale
-  const currentSelectedFiliereObj = allFilieres.find(
-    (f) => f.name === filterFiliere,
-  );
-  const maxDurationForCurrentFiliere =
-    currentSelectedFiliereObj?.duration_years ||
-    currentSelectedFiliereObj?.nombre_annees ||
-    3;
+      const duration = await getFiliereDurationByName(filterFiliere);
+
+      if (duration) {
+        setFiliereDuration(duration);
+      } else {
+        setFiliereDuration(3);
+      }
+    };
+
+    fetchDuration();
+  }, [filterFiliere]);
+  // Déterminer la limite en fonction des années / filières du contexte
+  const maxDurationForCurrentFiliere = filiereDuration;
   const isLastYearOfFiliere =
     parseInt(filterYearLevel) >= maxDurationForCurrentFiliere;
 
   const handleFinalPromotion = async () => {
     setIsSaving(true);
     try {
+      // Filtrer les étudiants qui ont strictement plus de 70
       const admitted = filteredStudents.filter((s: any) => {
         const p = calculateFinalPercentage(s.enrollment_id, dynamicColumns);
-        return parseFloat(p) >= 70;
+        return parseFloat(p) > 70;
       });
 
       if (admitted.length === 0) {
-        alert("Aucun étudiant admissible (>= 70%)");
+        alert("Aucun étudiant admissible (> 70%)");
         return;
       }
 
-      const nextYearLevel = parseInt(filterYearLevel) + 1;
+      // Trouver l'année académique courante sélectionnée
+      const currentYearObj = years.find((y) => y.id === yearId);
+      let nextAcademicYearId = yearId;
 
-      const dataToSave = admitted.map((s: any) => {
+      if (currentYearObj && currentYearObj.name) {
+        const currentYearMatch = currentYearObj.name.match(/\d+/);
+        if (currentYearMatch) {
+          const currentStartYear = parseInt(currentYearMatch[0]);
+          const nextStartYear = currentStartYear + 1;
+          const nextEndYear = nextStartYear + 1;
+          const expectedNextYearName = currentYearObj.name.includes("-")
+            ? `${nextStartYear}-${nextEndYear}`
+            : `${nextStartYear}`;
+
+          const foundNextYear = years.find((y) =>
+            y.name.includes(expectedNextYearName),
+          );
+          if (foundNextYear) {
+            nextAcademicYearId = foundNextYear.id;
+          }
+        }
+      }
+      const enrollmentData = admitted.map((s: any) => {
         return {
           student_id: s.student_id,
-          filiere_id: targetFiliereId,
-          academic_year_id: yearId,
+          filiere_id: s.filiere_id,
+          academic_year_id: nextAcademicYearId,
           session_id: sessionId,
-          year_level: nextYearLevel,
+          current_year: Number(filterYearLevel) + 1,
         };
       });
 
-      const res = await enrollStudentsInBulk(dataToSave);
-      if (res.success) {
+      // 1. Inscription en bloc en 2ème Année
+      const resEnroll = await enrollStudentsInBulk(enrollmentData);
+
+      if (resEnroll.success) {
+        // Optionnel : Si l'API renvoie les nouveaux identifiants d'inscription (enrollment_id)
+        // et que vous devez initialiser explicitement les lignes de notes à vide (score: null ou 0)
+        // dans la base de données pour les cours de la 2e année :
+
+        // const newGradesData = resEnroll.insertedStudents.flatMap((newStudent: any) => {
+        //   return dynamicColumns.map((course: any) => ({
+        //     enrollment_id: newStudent.id,
+        //     course_offering_id: course.offering_id,
+        //     score: null // Notes réinitialisées / vides
+        //   }));
+        // });
+        // await saveBulkGrades(newGradesData);
+
+        // Réinitialisation locale des modifications en attente (UI)
+        setPendingChanges({});
+
         alert(
-          `Promotion réussie en ${nextYearLevel}${nextYearLevel === 1 ? "ère" : "ème"} Année !`,
+          `Promotion réussie en 2ème Année ! Toutes les nouvelles notes ont été réinitialisées.`,
         );
         setIsModalOpen(false);
         await loadData();
       }
     } catch (error) {
-      alert("Erreur lors de la promotion");
+      alert("Erreur lors de la promotion et de la réinitialisation");
     } finally {
       setIsSaving(false);
     }
@@ -276,15 +304,38 @@ export default function GradesPage() {
   const dynamicColumns = rawData.courses.filter(
     (c: any) =>
       c.filiere_name === filterFiliere &&
-      (!c.year_level || String(c.year_level) === filterYearLevel),
+      String(c.year_level) === filterYearLevel,
   );
 
-  const filteredStudents = rawData.students.filter(
-    (s: any) =>
-      (filterFiliere === "" || s.filiere_name === filterFiliere) &&
-      (!s.year_level || String(s.year_level) === filterYearLevel) &&
-      s.student_name.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredStudents = rawData.students
+    .filter((s: any) => {
+      return (
+        (filterFiliere === "" || s.filiere_name === filterFiliere) &&
+        String(s.year_level) === filterYearLevel &&
+        s.student_name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    })
+
+    // SUPPRESSION DES DOUBLONS
+    .reduce((acc: any[], current: any) => {
+      const existing = acc.find((s) => s.student_id === current.student_id);
+
+      if (!existing) {
+        acc.push(current);
+      } else {
+        // garder l'inscription la plus récente
+        const currentDate = new Date(current.created_at || 0).getTime();
+
+        const existingDate = new Date(existing.created_at || 0).getTime();
+
+        if (currentDate > existingDate) {
+          const index = acc.indexOf(existing);
+          acc[index] = current;
+        }
+      }
+
+      return acc;
+    }, []);
 
   const getGradeUpdatedAt = (enrollId: string) => {
     const studentGrades = rawData.grades.filter(
@@ -315,6 +366,7 @@ export default function GradesPage() {
 
     return new Date(lastTimestamp).toLocaleDateString();
   };
+
   const handleUpdate = async (
     enrollId: string,
     courseId: string,
@@ -335,9 +387,6 @@ export default function GradesPage() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [sessionId, yearId]);
   return (
     <div className="p-2 md:p-6 space-y-6 bg-gray-50 min-h-screen font-sans">
       {/* HEADER & CONTRÔLES */}
@@ -370,7 +419,6 @@ export default function GradesPage() {
             />
           </div>
 
-          {/* SÉLECTEUR DE FILIÈRE */}
           <select
             className="px-4 py-2.5 bg-gray-50 border rounded-xl outline-none text-sm font-bold text-gray-600 disabled:bg-gray-100 disabled:text-gray-400"
             value={filterFiliere}
@@ -390,7 +438,6 @@ export default function GradesPage() {
             )}
           </select>
 
-          {/* SÉLECTEUR D'ANNÉE EN FONCTION DE LA DURÉE DE LA FILIÈRE */}
           <select
             value={filterYearLevel}
             onChange={(e) => setFilterYearLevel(e.target.value)}
@@ -403,7 +450,6 @@ export default function GradesPage() {
               </option>
             ))}
           </select>
-
           <select
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
@@ -431,11 +477,10 @@ export default function GradesPage() {
           {role === "admin" && (
             <button
               onClick={() => setIsModalOpen(true)}
-              // Désactivé si on est sur la dernière année (Ex: pas de 3ème année pour Telecom)
               disabled={
                 isSaving || filteredStudents.length === 0 || isLastYearOfFiliere
               }
-              className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 disabled:bg-gray-300 disabled:text-gray-500 transition-all text-sm"
+              className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-40 disabled:bg-gray-300 disabled:text-gray-500 transition-all text-sm"
             >
               {isSaving ? (
                 <Loader2 className="animate-spin" size={18} />
@@ -444,7 +489,7 @@ export default function GradesPage() {
               )}
               {isLastYearOfFiliere
                 ? "Dernière année atteinte"
-                : `Admettre en ${parseInt(filterYearLevel) + 1}e année`}
+                : "Admettre en 2e année"}
             </button>
           )}
         </div>
@@ -642,34 +687,16 @@ export default function GradesPage() {
                 <GraduationCap size={28} />
               </div>
               <h2 className="text-xl font-black text-slate-800">
-                Admission en {parseInt(filterYearLevel) + 1}e Année
+                Admission en {Number(filterYearLevel) + 1} Année
               </h2>
             </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">
-                  Filière de destination
-                </label>
-                <select
-                  value={targetFiliereId}
-                  onChange={(e) => setTargetFiliereId(e.target.value)}
-                  className="w-full mt-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/20"
-                >
-                  {allFilieres.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
                 <p className="text-xs text-amber-700 font-medium italic">
-                  Note: Seuls les étudiants de **{filterYearLevel}
-                  {filterYearLevel === "1" ? "ère" : "e"} Année** ayant une
-                  moyenne supérieure ou égale à **70%** seront promus en **
-                  {parseInt(filterYearLevel) + 1}e Année**.
+                  Note : Les étudiants sélectionnés ayant une moyenne supérieure
+                  à 70% seront transférés en {Number(filterYearLevel) + 1}e
+                  Année pour la nouvelle période académique.
                 </p>
               </div>
             </div>
